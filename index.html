@@ -164,6 +164,11 @@ select:focus, input[type="text"]:focus { border-color: #7c6aff; }
     <button class="btn btn-primary" onclick="runSummary()">▶ Запустить</button>
     <div class="status" id="s-sum"></div>
   </div>
+  <div id="copy-bar" style="display:none; margin-top:14px; margin-bottom:-8px; text-align:right;">
+    <button class="btn btn-outline" id="copy-btn" onclick="copyReport()" style="font-size:12px; padding:7px 14px;">
+      📋 Скопировать отчёт
+    </button>
+  </div>
   <div class="report" id="r-sum"></div>
 </div>
 
@@ -329,6 +334,7 @@ async function runSummary() {
     const box = document.getElementById('r-sum');
     box.textContent = j.report;
     box.classList.add('show');
+    document.getElementById('copy-bar').style.display = 'block';
   } catch(e) { setStatus('s-sum', 'error', '❌ ' + e.message); }
 }
 
@@ -372,6 +378,21 @@ async function runSettlement() {
     URL.revokeObjectURL(a.href);
     setStatus('s-set', 'success', '✅ Excel скачан: ' + fname);
   } catch(e) { setStatus('s-set', 'error', '❌ ' + e.message); }
+}
+
+function copyReport() {
+  const text = document.getElementById('r-sum').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '✅ Скопировано!';
+    btn.style.color = '#4ecca3';
+    btn.style.borderColor = '#4ecca3';
+    setTimeout(() => {
+      btn.textContent = '📋 Скопировать отчёт';
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    }, 2000);
+  });
 }
 
 // init
