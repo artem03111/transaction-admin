@@ -187,24 +187,9 @@ select:focus,input:focus{border-color:#7c6aff}
   </div>
 
   <div class="card" id="brands-found-card" style="display:none">
-    <div class="card-title">Шаг 2 — Выберите бренды для скачивания</div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div style="font-size:12px;color:#555568" id="brands-found-info"></div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-outline btn-sm" onclick="selectAllBrands(true)">Выбрать все</button>
-        <button class="btn btn-outline btn-sm" onclick="selectAllBrands(false)">Снять все</button>
-      </div>
-    </div>
-    <div id="brands-found-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="runBulkSettlement()" id="btn-zip">
-        ⬇ Скачать все выбранные (ZIP)
-      </button>
-      <button class="btn btn-outline" onclick="runSingleSettlement()" id="btn-xlsx">
-        📊 Скачать как Excel
-      </button>
-      <span style="font-size:11px;color:#555568" id="single-hint"></span>
-    </div>
+    <div class="card-title">Шаг 2 — Скачайте отчёты</div>
+    <div style="font-size:12px;color:#555568;margin-bottom:12px" id="brands-found-info"></div>
+    <div id="brands-found-list" style="display:flex;flex-direction:column;gap:8px"></div>
     <div class="status" id="s-set"></div>
   </div>
 </div>
@@ -413,32 +398,19 @@ function renderBrandsFound(brands) {
   document.getElementById('brands-found-info').textContent = 'Найдено ' + brands.length + ' брендов с успешными транзакциями';
   const list = document.getElementById('brands-found-list');
   list.innerHTML = brands.map(b => `
-    <label style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:#18181f;border:1px solid #2a2a38;border-radius:8px;cursor:pointer">
-      <input type="checkbox" class="brand-check" value="${b.name}" checked style="width:16px;height:16px;accent-color:#7c6aff">
+    <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#18181f;border:1px solid #2a2a38;border-radius:8px">
       <div style="flex:1">
         <div style="font-size:14px;font-weight:600">${b.name}</div>
         <div style="font-size:11px;color:#555568;margin-top:2px">${b.success_count.toLocaleString()} успешных транзакций</div>
       </div>
-      <div style="font-size:11px;color:#4ecca3">✓ есть в базе</div>
-    </label>
+      <div style="font-size:11px;color:#4ecca3;margin-right:12px">✓ есть в базе</div>
+      <button class="btn btn-primary btn-sm" onclick="downloadBrand('${b.name}')" id="btn-${b.name.replace(/\s/g,'_')}">
+        📊 Скачать Excel
+      </button>
+    </div>
   `).join('');
   document.getElementById('brands-found-card').style.display = 'block';
-  updateDownloadButtons();
 }
-
-function updateDownloadButtons() {
-  const selected = [...document.querySelectorAll('.brand-check:checked')];
-  const hint = document.getElementById('single-hint');
-  if (selected.length === 1) {
-    hint.textContent = 'Выбран 1 бренд — можно скачать как Excel';
-  } else {
-    hint.textContent = '';
-  }
-}
-
-document.addEventListener('change', e => {
-  if (e.target.classList.contains('brand-check')) updateDownloadButtons();
-});
 
 function selectAllBrands(val) {
   document.querySelectorAll('.brand-check').forEach(cb => cb.checked = val);
@@ -468,28 +440,35 @@ async function runBulkSettlement() {
   } catch(e) { setStatus('s-set','error','❌ ' + e.message); }
 }
 
-async function runSingleSettlement() {
+async function downloadBrand(brandName) {
   if (!API) { setStatus('s-set','error','❌ Укажите URL бэкенда в Настройках'); return; }
   const file = document.getElementById('f-set').files[0];
   if (!file) { setStatus('s-set','error','❌ Загрузите CSV файл'); return; }
-  const selected = [...document.querySelectorAll('.brand-check:checked')].map(cb => cb.value);
-  if (selected.length !== 1) { setStatus('s-set','error','❌ Выберите ровно один бренд для Excel'); return; }
-  setStatus('s-set','loading','Генерирую Excel для ' + selected[0] + '...');
+  const btnId = 'btn-' + brandName.replace(/\s/g, '_');
+  const btn = document.getElementById(btnId);
+  if (btn) { btn.textContent = '⟳ Генерирую...'; btn.disabled = true; }
+  setStatus('s-set','loading','Генерирую Excel для ' + brandName + '...');
   const fd = new FormData();
   fd.append('file', file);
-  fd.append('brand_name', selected[0]);
+  fd.append('brand_name', brandName);
   try {
     const r = await fetch(API + '/settlement-single', { method:'POST', body:fd });
     if (!r.ok) { const j = await r.json(); throw new Error(j.detail || r.status); }
     const blob = await r.blob();
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'settlement_' + selected[0] + '.xlsx';
+    a.download = 'settlement_' + brandName + '.xlsx';
     a.click(); URL.revokeObjectURL(a.href);
-    setStatus('s-set','success','✅ Excel скачан: settlement_' + selected[0] + '.xlsx');
-  } catch(e) { setStatus('s-set','error','❌ ' + e.message); }
+    setStatus('s-set','success','✅ Excel скачан: settlement_' + brandName + '.xlsx');
+    if (btn) { btn.textContent = '✅ Скачан'; btn.style.background = '#4ecca3'; }
+  } catch(e) {
+    setStatus('s-set','error','❌ ' + e.message);
+    if (btn) { btn.textContent = '📊 Скачать Excel'; btn.disabled = false; }
+  }
 }
 
+async function runBulkSettlement() {}
+async function selectAllBrands() {}
 async function runSettlement() {}
 
 // ── BRANDS ──
