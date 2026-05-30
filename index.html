@@ -172,23 +172,15 @@ select:focus,input:focus{border-color:#7c6aff}
   <div class="page-title">Settlement Report</div>
   <div class="page-sub">ЗАГРУЗИТЕ CSV — СИСТЕМА ПОКАЖЕТ ДОСТУПНЫЕ БРЕНДЫ</div>
   <div class="card">
-    <div class="card-title">Шаг 1 — Загрузите файлы</div>
-    <div class="row2">
-      <div class="fg"><label>CSV ВЫГРУЗКА</label>
-        <div class="dz" id="dz-set" ondragover="dzOver(event,'dz-set')" ondragleave="dzOut('dz-set')" ondrop="dzDrop(event,'f-set','dz-set','dz-set-name')">
-          <input type="file" id="f-set" accept=".csv" onchange="onCsvChange()">
-          <div class="dz-icon">📂</div><div class="dz-main">Перетащите CSV или нажмите</div>
-          <div class="dz-hint">Система автоматически найдёт бренды</div>
-          <div class="dz-name" id="dz-set-name"></div>
-        </div>
-      </div>
-      <div class="fg"><label>ШАБЛОН EXCEL (одинаковый для всех)</label>
-        <div class="dz" id="dz-tmpl" ondragover="dzOver(event,'dz-tmpl')" ondragleave="dzOut('dz-tmpl')" ondrop="dzDrop(event,'f-tmpl','dz-tmpl','dz-tmpl-name')">
-          <input type="file" id="f-tmpl" accept=".xlsx" onchange="dzChange('f-tmpl','dz-tmpl-name')">
-          <div class="dz-icon">📊</div><div class="dz-main">Excel шаблон</div>
-          <div class="dz-hint">Один шаблон для всех брендов</div>
-          <div class="dz-name" id="dz-tmpl-name"></div>
-        </div>
+    <div class="card-title">Шаг 1 — Загрузите CSV выгрузку</div>
+    <div class="fg">
+      <label>CSV ВЫГРУЗКА</label>
+      <div class="dz" id="dz-set" ondragover="dzOver(event,'dz-set')" ondragleave="dzOut('dz-set')" ondrop="dzDrop(event,'f-set','dz-set','dz-set-name')">
+        <input type="file" id="f-set" accept=".csv" onchange="onCsvChange()">
+        <div class="dz-icon">📂</div>
+        <div class="dz-main">Перетащите CSV или нажмите</div>
+        <div class="dz-hint">Система автоматически найдёт бренды из базы</div>
+        <div class="dz-name" id="dz-set-name"></div>
       </div>
     </div>
     <div class="status" id="s-detect"></div>
@@ -442,7 +434,6 @@ async function runBulkSettlement() {
   setStatus('s-set','loading','Генерирую отчёты для ' + selected.length + ' брендов...');
   const fd = new FormData();
   fd.append('file', file);
-  fd.append('template', tmpl);
   fd.append('brands', JSON.stringify(selected));
   try {
     const r = await fetch(API + '/settlement-bulk', { method:'POST', body:fd });
