@@ -713,14 +713,17 @@ async def api_settlement_detect(file: UploadFile = File(...)):
 @app.post("/settlement-bulk")
 async def api_settlement_bulk(
     file: UploadFile = File(...),
-    template: UploadFile = File(...),
     brands: str = Form(...),
 ):
     import zipfile, json as _json
     brand_names = _json.loads(brands)
     if not brand_names: raise HTTPException(400, "Не выбран ни один бренд")
     data = await file.read()
-    tmpl = await template.read()
+    # Load template from local file
+    if not os.path.exists(TEMPLATE_FILE):
+        raise HTTPException(500, f"Шаблон {TEMPLATE_FILE} не найден на сервере")
+    with open(TEMPLATE_FILE, "rb") as f:
+        tmpl = f.read()
     try: df = read_csv(data)
     except Exception as e: raise HTTPException(400, f"Не смог прочитать CSV: {e}")
     merchant_col = find_col(df, ["merchant_name","merchant name","merchant"])
