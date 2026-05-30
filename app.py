@@ -684,3 +684,73 @@ async def api_settlement_brand(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+@app.post("/settlement-detect")
+async def api_settlement_detect(file: UploadFile = File(...)):
+    data = await file.read()
+    try: df = read_csv(data)
+    except Exception as e: raise HTTPException(400, f"Не смог прочитать CSV: {e}")
+    merchant_col = find_col(df, ["merchant_name","merchant name","merchant"])
+    if not merchant_col: raise HTTPException(400, "Колонка merchant_name не найдена")
+    file_merchants = set(df[merchant_col].str.strip().str.lower().unique())
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM brands ORDER BY name")
+    db_brands = cur.fetchall()
+    cur.close(); conn.close()
+    matched = []
+    for b in db_brands:
+        if b["name"].lower() in file_merchants:
+            if "operation_status" in df.columns:
+                mask = (df[merchant_col].str.strip().str.lower() == b["name"].lower()) &                        (df["operation_status"].str.strip().str.lower() == "success")
+                count = int(mask.sum())
+            else:
+                count = int((df[merchant_col].str.strip().str.lower() == b["name"].lower()).sum())
+            matched.append({"name": b["name"], "success_count": count})
+    return {"brands": matched, "total_rows": len(df)}
+
+
+@app.post("/settlement-bulk")
+async def api_settlement_bulk(
+    file: UploadFile = File(...),
+    template: UploadFile = File(...),
+    brands: str = Form(...),
+):
+    import zipfile, json as _json
+    brand_names = _json.loads(brands)
+    if not brand_names: raise HTTPException(400, "Не выбран ни один бренд")
+    data = await file.read()
+    tmpl = await template.read()
+    try: df = read_csv(data)
+    except Exception as e: raise HTTPException(400, f"Не смог прочитать CSV: {e}")
+    merchant_col = find_col(df, ["merchant_name","merchant name","merchant"])
+    if not merchant_col: raise HTTPException(400, "Колонка merchant_name не найдена")
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    placeholders = ",".join(["%s"] * len(brand_names))
+    cur.execute(f"SELECT * FROM brands WHERE name IN ({placeholders})", brand_names)
+    db_brands = {b["name"]: dict(b) for b in cur.fetchall()}
+    cur.close(); conn.close()
+    zip_buffer = BytesIO()
+    errors = []
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for brand_name in brand_names:
+            if brand_name not in db_brands:
+                errors.append(f"{brand_name}: не найден в базе"); continue
+            brand = db_brands[brand_name]
+            df_brand = df[df[merchant_col].str.strip().str.lower() == brand_name.lower()].copy()
+            if df_brand.empty:
+                errors.append(f"{brand_name}: нет транзакций"); continue
+            try:
+                excel = build_settlement_from_template(df_brand, brand, tmpl)
+                zf.writestr(f"settlement_{safe_filename(brand_name)}.xlsx", excel.read())
+            except Exception as e:
+                errors.append(f"{brand_name}: {str(e)}")
+        if errors:
+            zf.writestr("errors.txt", "\n".join(errors))
+    zip_buffer.seek(0)
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="settlement_reports.zip"'},
+    )
