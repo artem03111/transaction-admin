@@ -170,31 +170,43 @@ select:focus,input:focus{border-color:#7c6aff}
 <!-- SETTLEMENT -->
 <div class="page" id="page-settlement">
   <div class="page-title">Settlement Report</div>
-  <div class="page-sub">EXCEL ОТЧЁТ ПО БРЕНДУ</div>
+  <div class="page-sub">ЗАГРУЗИТЕ CSV — СИСТЕМА ПОКАЖЕТ ДОСТУПНЫЕ БРЕНДЫ</div>
   <div class="card">
-    <div class="card-title">Параметры</div>
+    <div class="card-title">Шаг 1 — Загрузите файлы</div>
     <div class="row2">
-      <div class="fg"><label>БРЕНД</label>
-        <select id="set-brand"><option value="">— выберите бренд —</option></select>
-      </div>
-    </div>
-    <div class="row2">
-      <div class="fg"><label>CSV ФАЙЛ (выгрузка)</label>
+      <div class="fg"><label>CSV ВЫГРУЗКА</label>
         <div class="dz" id="dz-set" ondragover="dzOver(event,'dz-set')" ondragleave="dzOut('dz-set')" ondrop="dzDrop(event,'f-set','dz-set','dz-set-name')">
-          <input type="file" id="f-set" accept=".csv" onchange="dzChange('f-set','dz-set-name')">
-          <div class="dz-icon">📂</div><div class="dz-main">CSV выгрузка</div>
+          <input type="file" id="f-set" accept=".csv" onchange="onCsvChange()">
+          <div class="dz-icon">📂</div><div class="dz-main">Перетащите CSV или нажмите</div>
+          <div class="dz-hint">Система автоматически найдёт бренды</div>
           <div class="dz-name" id="dz-set-name"></div>
         </div>
       </div>
-      <div class="fg"><label>ШАБЛОН БРЕНДА (.xlsx)</label>
+      <div class="fg"><label>ШАБЛОН EXCEL (одинаковый для всех)</label>
         <div class="dz" id="dz-tmpl" ondragover="dzOver(event,'dz-tmpl')" ondragleave="dzOut('dz-tmpl')" ondrop="dzDrop(event,'f-tmpl','dz-tmpl','dz-tmpl-name')">
           <input type="file" id="f-tmpl" accept=".xlsx" onchange="dzChange('f-tmpl','dz-tmpl-name')">
           <div class="dz-icon">📊</div><div class="dz-main">Excel шаблон</div>
+          <div class="dz-hint">Один шаблон для всех брендов</div>
           <div class="dz-name" id="dz-tmpl-name"></div>
         </div>
       </div>
     </div>
-    <button class="btn btn-primary" onclick="runSettlement()">⬇ Скачать Excel</button>
+    <div class="status" id="s-detect"></div>
+  </div>
+
+  <div class="card" id="brands-found-card" style="display:none">
+    <div class="card-title">Шаг 2 — Выберите бренды для скачивания</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:12px;color:#555568" id="brands-found-info"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="selectAllBrands(true)">Выбрать все</button>
+        <button class="btn btn-outline btn-sm" onclick="selectAllBrands(false)">Снять все</button>
+      </div>
+    </div>
+    <div id="brands-found-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
+    <button class="btn btn-primary" onclick="runBulkSettlement()">
+      ⬇ Скачать выбранные (ZIP)
+    </button>
     <div class="status" id="s-set"></div>
   </div>
 </div>
@@ -375,46 +387,76 @@ async function runRecon() {
 }
 
 // ── SETTLEMENT ──
-async function loadBrandsToSelect() {
-  if (!API) return;
+async function loadBrandsToSelect() {}
+
+async function onCsvChange() {
+  const f = document.getElementById('f-set').files[0];
+  if (!f) return;
+  document.getElementById('dz-set-name').textContent = '📎 ' + f.name;
+  if (!API) { setStatus('s-detect','error','❌ Укажите URL бэкенда в Настройках'); return; }
+  setStatus('s-detect','loading','Анализирую файл...');
+  document.getElementById('brands-found-card').style.display = 'none';
+  const fd = new FormData();
+  fd.append('file', f);
   try {
-    const r = await fetch(API + '/brands');
-    const brands = await r.json();
-    const sel = document.getElementById('set-brand');
-    sel.innerHTML = '<option value="">— выберите бренд —</option>';
-    brands.forEach(b => {
-      const o = document.createElement('option');
-      o.value = o.textContent = b.name; sel.appendChild(o);
-    });
-  } catch(e) {}
+    const r = await fetch(API + '/settlement-detect', { method:'POST', body:fd });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.detail || r.status);
+    if (!j.brands.length) {
+      setStatus('s-detect','error','⚠️ Ни один бренд из базы не найден в файле. Добавьте бренды во вкладке Бренды.');
+      return;
+    }
+    setStatus('s-detect','success','✅ Файл прочитан · ' + j.total_rows.toLocaleString() + ' строк · Найдено брендов: ' + j.brands.length);
+    renderBrandsFound(j.brands);
+  } catch(e) { setStatus('s-detect','error','❌ ' + e.message); }
 }
 
-async function runSettlement() {
+function renderBrandsFound(brands) {
+  document.getElementById('brands-found-info').textContent = 'Найдено ' + brands.length + ' брендов с успешными транзакциями';
+  const list = document.getElementById('brands-found-list');
+  list.innerHTML = brands.map(b => `
+    <label style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:#18181f;border:1px solid #2a2a38;border-radius:8px;cursor:pointer">
+      <input type="checkbox" class="brand-check" value="${b.name}" checked style="width:16px;height:16px;accent-color:#7c6aff">
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:600">${b.name}</div>
+        <div style="font-size:11px;color:#555568;margin-top:2px">${b.success_count.toLocaleString()} успешных транзакций</div>
+      </div>
+      <div style="font-size:11px;color:#4ecca3">✓ есть в базе</div>
+    </label>
+  `).join('');
+  document.getElementById('brands-found-card').style.display = 'block';
+}
+
+function selectAllBrands(val) {
+  document.querySelectorAll('.brand-check').forEach(cb => cb.checked = val);
+}
+
+async function runBulkSettlement() {
   if (!API) { setStatus('s-set','error','❌ Укажите URL бэкенда в Настройках'); return; }
-  const brand = document.getElementById('set-brand').value;
-  if (!brand) { setStatus('s-set','error','❌ Выберите бренд'); return; }
   const file = document.getElementById('f-set').files[0];
   if (!file) { setStatus('s-set','error','❌ Загрузите CSV файл'); return; }
   const tmpl = document.getElementById('f-tmpl').files[0];
   if (!tmpl) { setStatus('s-set','error','❌ Загрузите шаблон Excel'); return; }
-  setStatus('s-set','loading','Генерирую Excel для ' + brand + '...');
+  const selected = [...document.querySelectorAll('.brand-check:checked')].map(cb => cb.value);
+  if (!selected.length) { setStatus('s-set','error','❌ Выберите хотя бы один бренд'); return; }
+  setStatus('s-set','loading','Генерирую отчёты для ' + selected.length + ' брендов...');
   const fd = new FormData();
   fd.append('file', file);
   fd.append('template', tmpl);
-  fd.append('brand_name', brand);
+  fd.append('brands', JSON.stringify(selected));
   try {
-    const r = await fetch(API + '/settlement-brand', { method:'POST', body:fd });
+    const r = await fetch(API + '/settlement-bulk', { method:'POST', body:fd });
     if (!r.ok) { const j = await r.json(); throw new Error(j.detail || r.status); }
     const blob = await r.blob();
-    const cd = r.headers.get('Content-Disposition') || '';
-    const m = cd.match(/filename="([^"]+)"/);
-    const fname = m ? m[1] : 'settlement.xlsx';
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = fname; a.click();
-    URL.revokeObjectURL(a.href);
-    setStatus('s-set','success','✅ Excel скачан: ' + fname);
+    a.href = URL.createObjectURL(blob);
+    a.download = selected.length === 1 ? 'settlement_' + selected[0] + '.zip' : 'settlement_reports.zip';
+    a.click(); URL.revokeObjectURL(a.href);
+    setStatus('s-set','success','✅ ZIP скачан · ' + selected.length + ' файлов');
   } catch(e) { setStatus('s-set','error','❌ ' + e.message); }
 }
+
+async function runSettlement() {}
 
 // ── BRANDS ──
 async function loadBrands() {
