@@ -805,25 +805,20 @@ async def api_settlement_single(
 
 
 @app.get("/settlement-download/{brand_name}")
-async def api_settlement_download(brand_name: str, file_id: str = ""):
+async def api_settlement_download(brand_name: str):
     """Direct download link for Safari compatibility"""
-    import base64, tempfile, os as _os
-    
-    # Read cached file from temp
     cache_path = f"/tmp/settlement_{safe_filename(brand_name)}.xlsx"
     if not os.path.exists(cache_path):
         raise HTTPException(404, "Файл не найден. Сначала сгенерируйте отчёт.")
-    
-    with open(cache_path, "rb") as f:
-        data = f.read()
-    
     filename = f"settlement_{safe_filename(brand_name)}.xlsx"
-    return StreamingResponse(
-        BytesIO(data),
+    return FileResponse(
+        path=cache_path,
+        filename=filename,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
-            "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "Cache-Control": "no-cache",
+            "X-Content-Type-Options": "nosniff",
         },
     )
 
