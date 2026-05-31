@@ -441,12 +441,9 @@ async function runBulkSettlement() {
 }
 
 async function downloadBrand(brandName) {
-  if (!API && !window.location.hostname.includes('onrender.com')) {
-    setStatus('s-set','error','❌ Укажите URL бэкенда в Настройках'); return;
-  }
   const file = document.getElementById('f-set').files[0];
   if (!file) { setStatus('s-set','error','❌ Загрузите CSV файл'); return; }
-  const btnId = 'btn-' + brandName.replace(/\s/g, '_');
+  const btnId = 'btn-' + brandName.replace(/[^a-zA-Z0-9]/g, '_');
   const btn = document.getElementById(btnId);
   if (btn) { btn.textContent = '⟳ Генерирую...'; btn.disabled = true; }
   setStatus('s-set','loading','Генерирую Excel для ' + brandName + '...');
@@ -455,17 +452,17 @@ async function downloadBrand(brandName) {
   fd.append('brand_name', brandName);
   try {
     const base = (API||'');
+    // Step 1: generate and save on server
     const r = await fetch(base + '/settlement-prepare', { method:'POST', body:fd });
     const j = await r.json();
     if (!r.ok) throw new Error(j.detail || r.status);
-    // Create hidden link and click — Safari compatible
-    const downloadUrl = base + j.download_url;
-    const a = document.createElement('a');
-    a.href = downloadUrl;
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    // Step 2: download via form POST — Safari compatible
+    const form = document.createElement('form');
+    form.method = 'GET';
+    form.action = base + j.download_url;
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
     setStatus('s-set','success','✅ Скачивание началось для ' + brandName);
     if (btn) { btn.textContent = '✅ Готово'; btn.style.background = '#4ecca3'; }
     setTimeout(() => {
@@ -580,18 +577,25 @@ async function deleteBrand(name) {
 
 // init
 window.onload = function() {
-  // If served from Render (same domain), use relative URL
+  // Auto-detect API URL
   if (window.location.hostname.includes('onrender.com')) {
+    // Served from Render — same domain, no need for full URL
     API = '';
-    document.getElementById('api-url').value = '(автоматически — тот же сервер)';
+    document.getElementById('api-url').value = window.location.origin;
     document.getElementById('api-dot').className = 'dot ok';
     document.getElementById('api-status-text').textContent = 'API online';
     loadBrandsToSelect();
+  } else if (localStorage.getItem('trx_api')) {
+    // Previously saved URL
+    API = localStorage.getItem('trx_api');
+    document.getElementById('api-url').value = API;
+    checkApi();
   } else {
-    const saved = localStorage.getItem('trx_api') || '';
-    document.getElementById('api-url').value = saved;
-    API = saved;
-    if (API) { checkApi(); }
+    // Default to Render URL
+    API = 'https://transaction-admin.onrender.com';
+    document.getElementById('api-url').value = API;
+    localStorage.setItem('trx_api', API);
+    checkApi();
   }
 };
 </script>
