@@ -40,6 +40,7 @@ except ImportError:
 
 SPREADSHEET_ID   = os.getenv("SPREADSHEET_ID", "")
 RECON_SHEET_NAME = os.getenv("RECON_SHEET_NAME", "1. Reconciliation")
+TEMPLATE_FILE    = "template.xlsx"
 SCOPES           = ["https://www.googleapis.com/auth/spreadsheets"]
 SHEETS_WRITE_CHUNK = 2000
 HEADER_ROWS        = 2
