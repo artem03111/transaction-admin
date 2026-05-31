@@ -452,18 +452,21 @@ async function downloadBrand(brandName) {
   fd.append('brand_name', brandName);
   try {
     const base = (API||'');
-    // Step 1: generate and save on server
-    const r = await fetch(base + '/settlement-prepare', { method:'POST', body:fd });
+    const r = await fetch(base + '/settlement-b64', { method:'POST', body:fd });
     const j = await r.json();
     if (!r.ok) throw new Error(j.detail || r.status);
-    // Step 2: download via form POST — Safari compatible
-    const form = document.createElement('form');
-    form.method = 'GET';
-    form.action = base + j.download_url;
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
-    setStatus('s-set','success','✅ Скачивание началось для ' + brandName);
+    // Decode base64 and save via Blob — guaranteed Safari support
+    const bytes = Uint8Array.from(atob(j.data), c => c.charCodeAt(0));
+    const blob = new Blob([bytes], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = j.filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 1000);
+    setStatus('s-set','success','✅ Excel скачан: ' + j.filename);
     if (btn) { btn.textContent = '✅ Готово'; btn.style.background = '#4ecca3'; }
     setTimeout(() => {
       if (btn) { btn.textContent = '📊 Скачать Excel'; btn.style.background = ''; btn.disabled = false; }
