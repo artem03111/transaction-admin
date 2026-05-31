@@ -452,15 +452,18 @@ async function downloadBrand(brandName) {
   fd.append('file', file);
   fd.append('brand_name', brandName);
   try {
-    const r = await fetch(API + '/settlement-single', { method:'POST', body:fd });
-    if (!r.ok) { const j = await r.json(); throw new Error(j.detail || r.status); }
-    const blob = await r.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'settlement_' + brandName + '.xlsx';
-    a.click(); URL.revokeObjectURL(a.href);
-    setStatus('s-set','success','✅ Excel скачан: settlement_' + brandName + '.xlsx');
-    if (btn) { btn.textContent = '✅ Скачан'; btn.style.background = '#4ecca3'; }
+    // Step 1: prepare file on server
+    const r = await fetch(API + '/settlement-prepare', { method:'POST', body:fd });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.detail || r.status);
+    // Step 2: open direct download link — works in Safari
+    const downloadUrl = API + j.download_url;
+    window.location.href = downloadUrl;
+    setStatus('s-set','success','✅ Скачивание началось...');
+    if (btn) { btn.textContent = '✅ Готово'; btn.style.background = '#4ecca3'; }
+    setTimeout(() => {
+      if (btn) { btn.textContent = '📊 Скачать Excel'; btn.style.background = ''; btn.disabled = false; }
+    }, 3000);
   } catch(e) {
     setStatus('s-set','error','❌ ' + e.message);
     if (btn) { btn.textContent = '📊 Скачать Excel'; btn.disabled = false; }
