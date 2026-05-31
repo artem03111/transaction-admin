@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 import psycopg2
 import psycopg2.extras
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from openpyxl import load_workbook
@@ -855,3 +855,106 @@ async def api_settlement_prepare(
     with open(cache_path, "wb") as f:
         f.write(excel.read())
     return {"download_url": f"/settlement-download/{brand_name}"}
+
+
+@app.post("/settlement-direct")
+async def api_settlement_direct(request: Request):
+    """Direct POST download — Safari compatible via form submit"""
+    from fastapi import Request
+    import base64 as b64
+    
+    form = await request.form()
+    brand_name = form.get("brand_name", "")
+    file_b64 = form.get("file_b64", "")
+    filename = form.get("filename", "data.csv")
+    
+    if not brand_name or not file_b64:
+        raise HTTPException(400, "brand_name и file_b64 обязательны")
+    
+    # Decode CSV
+    try:
+        csv_bytes = b64.b64decode(file_b64)
+    except Exception as e:
+        raise HTTPException(400, f"Ошибка декодирования: {e}")
+    
+    if not os.path.exists(TEMPLATE_FILE):
+        raise HTTPException(500, f"Шаблон не найден")
+    
+    with open(TEMPLATE_FILE, "rb") as f:
+        tmpl = f.read()
+    
+    try:
+        df = read_csv(csv_bytes)
+    except Exception as e:
+        raise HTTPException(400, f"Не смог прочитать CSV: {e}")
+    
+    merchant_col = find_col(df, ["merchant_name","merchant name","merchant"])
+    if not merchant_col:
+        raise HTTPException(400, "Колонка merchant_name не найдена")
+    
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM brands WHERE name=%s", (brand_name,))
+    brand = cur.fetchone()
+    cur.close(); conn.close()
+    
+    if not brand:
+        raise HTTPException(404, f"Бренд не найден")
+    
+    df_brand = df[df[merchant_col].str.strip().str.lower() == brand_name.lower()].copy()
+    if df_brand.empty:
+        raise HTTPException(400, "Нет транзакций")
+    
+    try:
+        excel = build_settlement_from_template(df_brand, dict(brand), tmpl)
+    except Exception as e:
+        raise HTTPException(500, str(e))
+    
+    out_filename = f"settlement_{safe_filename(brand_name)}.xlsx"
+    return StreamingResponse(
+        excel,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{out_filename}"',
+            "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "Cache-Control": "no-cache",
+        },
+    )
+
+
+@app.post("/settlement-b64")
+async def api_settlement_b64(
+    file: UploadFile = File(...),
+    brand_name: str = Form(...),
+):
+    """Return Excel as base64 — Safari compatible"""
+    import base64 as b64lib
+    data = await file.read()
+    if not os.path.exists(TEMPLATE_FILE):
+        raise HTTPException(500, "Шаблон не найден")
+    with open(TEMPLATE_FILE, "rb") as f:
+        tmpl = f.read()
+    try:
+        df = read_csv(data)
+    except Exception as e:
+        raise HTTPException(400, f"Не смог прочитать CSV: {e}")
+    merchant_col = find_col(df, ["merchant_name","merchant name","merchant"])
+    if not merchant_col:
+        raise HTTPException(400, "Колонка merchant_name не найдена")
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM brands WHERE name=%s", (brand_name,))
+    brand = cur.fetchone()
+    cur.close(); conn.close()
+    if not brand:
+        raise HTTPException(404, f"Бренд не найден")
+    df_brand = df[df[merchant_col].str.strip().str.lower() == brand_name.lower()].copy()
+    if df_brand.empty:
+        raise HTTPException(400, "Нет транзакций")
+    try:
+        excel = build_settlement_from_template(df_brand, dict(brand), tmpl)
+    except Exception as e:
+        raise HTTPException(500, str(e))
+    b64data = b64lib.b64encode(excel.read()).decode("utf-8")
+    filename = f"settlement_{safe_filename(brand_name)}.xlsx"
+    return {"filename": filename, "data": b64data}
