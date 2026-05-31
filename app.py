@@ -13,6 +13,9 @@ import time
 from datetime import datetime
 from io import BytesIO
 
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+
 import numpy as np
 import pandas as pd
 import psycopg2
@@ -124,6 +127,13 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup():
     init_db()
+
+@app.get("/app", response_class=HTMLResponse)
+def serve_app():
+    if os.path.exists("index.html"):
+        with open("index.html", "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h1>index.html not found</h1>", status_code=404)
 
 @app.get("/")
 def root():
