@@ -441,7 +441,9 @@ async function runBulkSettlement() {
 }
 
 async function downloadBrand(brandName) {
-  if (!API) { setStatus('s-set','error','❌ Укажите URL бэкенда в Настройках'); return; }
+  if (!API && !window.location.hostname.includes('onrender.com')) {
+    setStatus('s-set','error','❌ Укажите URL бэкенда в Настройках'); return;
+  }
   const file = document.getElementById('f-set').files[0];
   if (!file) { setStatus('s-set','error','❌ Загрузите CSV файл'); return; }
   const btnId = 'btn-' + brandName.replace(/\s/g, '_');
@@ -452,14 +454,19 @@ async function downloadBrand(brandName) {
   fd.append('file', file);
   fd.append('brand_name', brandName);
   try {
-    // Step 1: prepare file on server
-    const r = await fetch((API||'') + '/settlement-prepare', { method:'POST', body:fd });
+    const base = (API||'');
+    const r = await fetch(base + '/settlement-prepare', { method:'POST', body:fd });
     const j = await r.json();
     if (!r.ok) throw new Error(j.detail || r.status);
-    // Step 2: open direct download link — works in Safari
-    const downloadUrl = (API||'') + j.download_url;
-    window.location.href = downloadUrl;
-    setStatus('s-set','success','✅ Скачивание началось...');
+    // Create hidden link and click — Safari compatible
+    const downloadUrl = base + j.download_url;
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setStatus('s-set','success','✅ Скачивание началось для ' + brandName);
     if (btn) { btn.textContent = '✅ Готово'; btn.style.background = '#4ecca3'; }
     setTimeout(() => {
       if (btn) { btn.textContent = '📊 Скачать Excel'; btn.style.background = ''; btn.disabled = false; }
