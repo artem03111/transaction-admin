@@ -792,3 +792,61 @@ async def api_settlement_single(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@app.get("/settlement-download/{brand_name}")
+async def api_settlement_download(brand_name: str, file_id: str = ""):
+    """Direct download link for Safari compatibility"""
+    import base64, tempfile, os as _os
+    
+    # Read cached file from temp
+    cache_path = f"/tmp/settlement_{safe_filename(brand_name)}.xlsx"
+    if not os.path.exists(cache_path):
+        raise HTTPException(404, "Файл не найден. Сначала сгенерируйте отчёт.")
+    
+    with open(cache_path, "rb") as f:
+        data = f.read()
+    
+    filename = f"settlement_{safe_filename(brand_name)}.xlsx"
+    return StreamingResponse(
+        BytesIO(data),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        },
+    )
+
+
+@app.post("/settlement-prepare")
+async def api_settlement_prepare(
+    file: UploadFile = File(...),
+    brand_name: str = Form(...),
+):
+    """Prepare Excel and save to temp, return download URL"""
+    data = await file.read()
+    if not os.path.exists(TEMPLATE_FILE):
+        raise HTTPException(500, f"Шаблон {TEMPLATE_FILE} не найден на сервере")
+    with open(TEMPLATE_FILE, "rb") as f:
+        tmpl = f.read()
+    try: df = read_csv(data)
+    except Exception as e: raise HTTPException(400, f"Не смог прочитать CSV: {e}")
+    merchant_col = find_col(df, ["merchant_name","merchant name","merchant"])
+    if not merchant_col: raise HTTPException(400, "Колонка merchant_name не найдена")
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM brands WHERE name=%s", (brand_name,))
+    brand = cur.fetchone()
+    cur.close(); conn.close()
+    if not brand: raise HTTPException(404, f"Бренд не найден")
+    df_brand = df[df[merchant_col].str.strip().str.lower() == brand_name.lower()].copy()
+    if df_brand.empty: raise HTTPException(400, "Нет транзакций")
+    try:
+        excel = build_settlement_from_template(df_brand, dict(brand), tmpl)
+    except Exception as e:
+        raise HTTPException(500, str(e))
+    # Save to temp file
+    cache_path = f"/tmp/settlement_{safe_filename(brand_name)}.xlsx"
+    with open(cache_path, "wb") as f:
+        f.write(excel.read())
+    return {"download_url": f"/settlement-download/{brand_name}"}
