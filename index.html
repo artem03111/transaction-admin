@@ -310,7 +310,7 @@ async function checkApi() {
   if (!API) { setStatus('s-settings','error','❌ Введите URL бэкенда'); return; }
   setStatus('s-settings','loading','Проверяю соединение...');
   try {
-    const r = await fetch(API + '/', { signal: AbortSignal.timeout(10000) });
+    const r = await fetch((API||'') + '/', { signal: AbortSignal.timeout(10000) });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     setStatus('s-settings','success','✅ Соединение OK · API работает');
     document.getElementById('api-dot').className = 'dot ok';
@@ -335,7 +335,7 @@ async function runSummary() {
   fd.append('file', file);
   fd.append('op_type', document.getElementById('sum-optype').value);
   try {
-    const r = await fetch(API + '/summary', { method:'POST', body:fd });
+    const r = await fetch((API||'') + '/summary', { method:'POST', body:fd });
     const j = await r.json();
     if (!r.ok) throw new Error(j.detail || r.status);
     setStatus('s-sum','success','✅ Готово · ' + (j.rows||0).toLocaleString() + ' строк обработано');
@@ -362,7 +362,7 @@ async function runRecon() {
   setStatus('s-rec','loading','Загружаю в Google Sheets...');
   const fd = new FormData(); fd.append('file', file);
   try {
-    const r = await fetch(API + '/recon', { method:'POST', body:fd });
+    const r = await fetch((API||'') + '/recon', { method:'POST', body:fd });
     const j = await r.json();
     if (!r.ok) throw new Error(j.detail || r.status);
     setStatus('s-rec','success','✅ Готово · Записано ' + (j.rows||0).toLocaleString() + ' строк');
@@ -382,7 +382,7 @@ async function onCsvChange() {
   const fd = new FormData();
   fd.append('file', f);
   try {
-    const r = await fetch(API + '/settlement-detect', { method:'POST', body:fd });
+    const r = await fetch((API||'') + '/settlement-detect', { method:'POST', body:fd });
     const j = await r.json();
     if (!r.ok) throw new Error(j.detail || r.status);
     if (!j.brands.length) {
@@ -429,7 +429,7 @@ async function runBulkSettlement() {
   fd.append('file', file);
   fd.append('brands', JSON.stringify(selected));
   try {
-    const r = await fetch(API + '/settlement-bulk', { method:'POST', body:fd });
+    const r = await fetch((API||'') + '/settlement-bulk', { method:'POST', body:fd });
     if (!r.ok) { const j = await r.json(); throw new Error(j.detail || r.status); }
     const blob = await r.blob();
     const a = document.createElement('a');
@@ -453,11 +453,11 @@ async function downloadBrand(brandName) {
   fd.append('brand_name', brandName);
   try {
     // Step 1: prepare file on server
-    const r = await fetch(API + '/settlement-prepare', { method:'POST', body:fd });
+    const r = await fetch((API||'') + '/settlement-prepare', { method:'POST', body:fd });
     const j = await r.json();
     if (!r.ok) throw new Error(j.detail || r.status);
     // Step 2: open direct download link — works in Safari
-    const downloadUrl = API + j.download_url;
+    const downloadUrl = (API||'') + j.download_url;
     window.location.href = downloadUrl;
     setStatus('s-set','success','✅ Скачивание началось...');
     if (btn) { btn.textContent = '✅ Готово'; btn.style.background = '#4ecca3'; }
@@ -478,7 +478,7 @@ async function runSettlement() {}
 async function loadBrands() {
   if (!API) { document.getElementById('brands-list').innerHTML = '<div style="color:#ff6b6b;font-size:13px;text-align:center;padding:20px">Настройте URL бэкенда в Настройках</div>'; return; }
   try {
-    const r = await fetch(API + '/brands');
+    const r = await fetch((API||'') + '/brands');
     const brands = await r.json();
     const list = document.getElementById('brands-list');
     if (!brands.length) {
@@ -557,7 +557,7 @@ async function saveBrand() {
     refund_fee: +document.getElementById('b-ref').value,
   };
   try {
-    const r = await fetch(API + '/brands', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+    const r = await fetch((API||'') + '/brands', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
     if (!r.ok) { const j = await r.json(); throw new Error(j.detail); }
     closeModal(); loadBrands();
   } catch(e) { alert('Ошибка: ' + e.message); }
@@ -566,17 +566,26 @@ async function saveBrand() {
 async function deleteBrand(name) {
   if (!confirm('Удалить бренд "' + name + '"?')) return;
   try {
-    await fetch(API + '/brands/' + encodeURIComponent(name), { method:'DELETE' });
+    await fetch((API||'') + '/brands/' + encodeURIComponent(name), { method:'DELETE' });
     loadBrands();
   } catch(e) { alert('Ошибка: ' + e.message); }
 }
 
 // init
 window.onload = function() {
-  const saved = localStorage.getItem('trx_api') || '';
-  document.getElementById('api-url').value = saved;
-  API = saved;
-  if (API) { checkApi(); }
+  // If served from Render (same domain), use relative URL
+  if (window.location.hostname.includes('onrender.com')) {
+    API = '';
+    document.getElementById('api-url').value = '(автоматически — тот же сервер)';
+    document.getElementById('api-dot').className = 'dot ok';
+    document.getElementById('api-status-text').textContent = 'API online';
+    loadBrandsToSelect();
+  } else {
+    const saved = localStorage.getItem('trx_api') || '';
+    document.getElementById('api-url').value = saved;
+    API = saved;
+    if (API) { checkApi(); }
+  }
 };
 </script>
 </body>
