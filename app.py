@@ -356,12 +356,17 @@ def build_report(df, op_filter="deposit"):
     # OB — берём все статусы как карты (success+decline+processing)
     if op_filter == "deposit":
         ob_op = "payment confirmation"
-        ob = ob_base[ob_base["op_type"] == ob_op].copy()
-        # Добавляем decline от "sale" если нет decline в payment confirmation
-        sale_declines = ob_base[(ob_base["op_type"] == "sale") & (ob_base["status"] == "decline")]
-        if not sale_declines.empty and ob[ob["status"] == "decline"].empty:
-            ob = pd.concat([ob, sale_declines], ignore_index=True)
-        ob = ob[ob["status"].isin(SHOW_STATUSES)]
+        # Берём payment confirmation всех статусов + sale decline
+        ob_success_proc = ob_base[(ob_base["op_type"] == "payment confirmation") & ob_base["status"].isin({"success","processing"})]
+        ob_decline_pc = ob_base[(ob_base["op_type"] == "payment confirmation") & (ob_base["status"] == "decline")]
+        ob_decline_sale = ob_base[(ob_base["op_type"] == "sale") & (ob_base["status"] == "decline")]
+        # Decline берём из payment confirmation если есть, иначе из sale
+        if not ob_decline_pc.empty:
+            ob = pd.concat([ob_success_proc, ob_decline_pc], ignore_index=True)
+        else:
+            ob = pd.concat([ob_success_proc, ob_decline_sale], ignore_index=True)
+        # Нормализуем op_type для decline чтобы _merchant_block нашёл их
+        ob["op_type"] = ob_op
     else:
         ob_op = "payout"
         ob = ob_base[(ob_base["op_type"] == ob_op) & ob_base["status"].isin(SHOW_STATUSES)].copy()
