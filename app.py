@@ -352,13 +352,19 @@ def build_report(df, op_filter="deposit"):
         card_msg += "\n\n".join(blocks) if blocks else "No blocks found."
 
     ob_base = work[work["pay_type"].isin(OB_PAY_TYPES)] if has_pay_col and work["pay_type"].isin(OB_PAY_TYPES).any() else work
+
+    # OB — берём все статусы как карты (success+decline+processing)
     if op_filter == "deposit":
-        ob = pd.concat([
-            ob_base[(ob_base["op_type"]=="payment confirmation") & ob_base["status"].isin({"success","processing"})],
-            ob_base[(ob_base["op_type"]=="sale") & (ob_base["status"]=="decline")],
-        ], ignore_index=True)
+        ob_op = "payment confirmation"
+        ob = ob_base[ob_base["op_type"] == ob_op].copy()
+        # Добавляем decline от "sale" если нет decline в payment confirmation
+        sale_declines = ob_base[(ob_base["op_type"] == "sale") & (ob_base["status"] == "decline")]
+        if not sale_declines.empty and ob[ob["status"] == "decline"].empty:
+            ob = pd.concat([ob, sale_declines], ignore_index=True)
+        ob = ob[ob["status"].isin(SHOW_STATUSES)]
     else:
-        ob = ob_base[(ob_base["op_type"]=="payout") & ob_base["status"].isin(SHOW_STATUSES)].copy()
+        ob_op = "payout"
+        ob = ob_base[(ob_base["op_type"] == ob_op) & ob_base["status"].isin(SHOW_STATUSES)].copy()
 
     ob_msg = f"💰 OB: {label} (file)\n\n"
     if ob.empty:
@@ -366,15 +372,17 @@ def build_report(df, op_filter="deposit"):
         return (card_msg + "\n\n" + ob_msg).strip()
 
     ob_tot = ob.groupby(["status","cur"], dropna=False).agg(cnt=("amt","size"), amt=("amt","sum")).reset_index()
-    total_cnt = int(len(ob)); succ_cnt = int(ob_tot[ob_tot["status"]=="success"]["cnt"].sum())
+    total_cnt = int(len(ob))
+    succ_cnt = int(ob_tot[ob_tot["status"]=="success"]["cnt"].sum())
     decl_cnt = int(ob_tot[ob_tot["status"]=="decline"]["cnt"].sum())
     proc_cnt = int(ob_tot[ob_tot["status"]=="processing"]["cnt"].sum())
-    ob_msg += f"total: {total_cnt} {trx_word(total_cnt)}\n{succ_cnt} success for {_total_line(ob_tot,'success')}\n{decl_cnt} decline for {_total_line(ob_tot,'decline')}\n{proc_cnt} processing for {_total_line(ob_tot,'processing')}\n\n"
+    conv = succ_cnt / total_cnt * 100 if total_cnt > 0 else 0
+    badge = "✅" if conv >= 50 else "⚠️"
+    ob_msg += f"total: {total_cnt} {trx_word(total_cnt)}\n{succ_cnt} success for {_total_line(ob_tot,'success')}\n{decl_cnt} decline for {_total_line(ob_tot,'decline')}\n{proc_cnt} processing for {_total_line(ob_tot,'processing')}\nconversion: {conv:.2f}% successful {badge}\n\n"
 
     grp2 = ob.groupby(["merchant","op_type","status","cur"], dropna=False).agg(cnt=("amt","size"), amt=("amt","sum")).reset_index()
     order2 = grp2.groupby("merchant")["cnt"].sum().sort_values(ascending=False).index.tolist()
     blocks2 = []
-    ob_op = "payment confirmation" if op_filter == "deposit" else "payout"
     for i, merchant in enumerate(order2, start=1):
         mm = grp2[grp2["merchant"]==merchant]
         block, *_ = _merchant_block(mm, ob_op, "deposits:" if op_filter=="deposit" else "payouts:")
