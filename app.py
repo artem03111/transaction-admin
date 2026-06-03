@@ -46,7 +46,10 @@ SHEETS_WRITE_CHUNK = 2000
 HEADER_ROWS        = 2
 DATA_START_ROW     = HEADER_ROWS + 1
 
-EXCLUDED_MERCHANTS = {"sognolab", "cratecracker"}
+EXCLUDED_MERCHANTS = {
+    "sognolab", "cratecracker", "fiftytemps", "asquad",
+    "profit bridge ltd", "ideayard", "skinsbo"
+}
 CARD_PAY_TYPES     = {"visa", "mastercard", "maestro"}
 OB_PAY_TYPES       = {"open-banking", "banks/germany"}
 SHOW_STATUSES      = {"success", "decline", "processing"}
