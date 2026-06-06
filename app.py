@@ -557,21 +557,21 @@ def build_nobimatik_report(bank_data: bytes, deposit_data: bytes):
     ws1.title = "Matched"
     ws1.freeze_panes = "A2"
     ws1.row_dimensions[1].height = 32
-    h1 = ["Customer Email","Customer Name","Payment ID",
+    h1 = ["Customer Email","Customer Name","Payment ID","External ID / Payment ID",
           "Currency","Amount","Date","Bank TRN","Bank Amount","Bank Date"]
     for c, h in enumerate(h1, 1): hdr(ws1.cell(1, c), h)
-    set_widths(ws1, [28, 22, 38, 10, 13, 14, 24, 13, 14])
+    set_widths(ws1, [28, 22, 38, 32, 10, 13, 14, 24, 13, 14])
 
     for ri, (_, brow) in enumerate(matched.iterrows()):
         r = ri + 2
         bg = GREEN if ri % 2 == 0 else GREEN2
         dep = bnk_to_dep.get(brow["_bnk"], {})
         def g(col): return "" if not col or str(dep.get(col,"")) in ("nan","") else str(dep.get(col,"")).strip()
-        vals = [g(email_col), g(name_col), g(ext_col), g(cur_col),
+        vals = [g(email_col), g(name_col), g(ext_col), g(ext_col), g(cur_col),
                 to_amount(dep.get(amt_col, 0)) if amt_col else "",
                 g(dat_col)[:10] if g(dat_col) else "",
                 brow["_bnk"], brow["_credit"], brow["_date"]]
-        fmts = [None,None,None,None,"#,##0.00",None,None,"#,##0.00",None]
+        fmts = [None,None,None,None,None,"#,##0.00",None,None,"#,##0.00",None]
         for ci,(v,f) in enumerate(zip(vals,fmts),1): dat(ws1.cell(r,ci), v, bg, f)
 
     # Sheet 2: Not Found
