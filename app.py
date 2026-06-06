@@ -405,108 +405,106 @@ async def api_recon(file: UploadFile = File(...)):
     return {"ok": True, "rows": len(df)}
 
 
+
 # =============================================================================
-# NOBIMATIK — Bank matching
+# NOBIMATIK — CSV bank vs CSV deposit matching
 # =============================================================================
 
-DEPOSIT_CSV_PATH = os.getenv("DEPOSIT_CSV_PATH", "deposit_report.csv")
-
-def _read_bank_xls(data: bytes):
-    """Read bank XLS, return credit rows with BNK code, date, amount, remitter."""
-    df_raw = pd.read_excel(BytesIO(data), engine="xlrd", header=None, dtype=str)
-    # Find header row (contains 'Transaction date')
-    header_row = 12
-    for i, row in df_raw.iterrows():
-        vals = [str(v).strip().lower() for v in row if str(v).strip() not in ("nan", "")]
-        if any("transaction date" in v or "transaction reg" in v for v in vals):
-            header_row = i
-            break
-    df = pd.read_excel(BytesIO(data), engine="xlrd", header=header_row, dtype=str)
-    df.columns = [str(c).strip() for c in df.columns]
-    # Locate columns
-    def _col(kws):
-        for c in df.columns:
-            if any(k in c.lower() for k in kws):
-                return c
-        return None
-    credit_col  = _col(["credit(c)", "credit"])
-    trn_col     = _col(["transaction registration", "registration number"])
-    date_col    = _col(["transaction date", "date"])
-    remit_col   = _col(["remitter/beneficiary", "remitter", "beneficiary"])
-    if not credit_col or not trn_col:
-        raise ValueError(f"Не найдены колонки Credit/TRN. Колонки: {list(df.columns)}")
-    df["_credit"] = df[credit_col].apply(to_amount)
-    df["_bnk"]    = df[trn_col].astype(str).str.strip()
-    df["_date"]   = df[date_col].astype(str).str.strip() if date_col else ""
-    df["_remit"]  = df[remit_col].astype(str).str.strip() if remit_col else ""
-    # Only BNK rows with credit > 0.5
-    credit_rows = df[
-        (df["_credit"] > 0.5) &
-        (df["_bnk"].str.upper().str.startswith("BNK"))
-    ].copy().reset_index(drop=True)
-    return credit_rows
-
-def _load_deposit_csv():
-    """Load deposit CSV from server. Returns ext_id -> bnk_code map."""
-    if not os.path.exists(DEPOSIT_CSV_PATH):
-        return {}
-    df = pd.read_csv(DEPOSIT_CSV_PATH, sep=";", dtype=str)
-    acq_col = "acquirer_id / provider_payment_id"
-    ext_col = "external_id / payment_id"
-    if acq_col not in df.columns or ext_col not in df.columns:
-        # try comma sep
-        df = pd.read_csv(DEPOSIT_CSV_PATH, sep=",", dtype=str)
-    pc = df[
-        (df.get("operation_type", pd.Series(dtype=str)).str.strip().str.lower() == "payment confirmation") &
-        (df.get("operation_status", pd.Series(dtype=str)).str.strip().str.lower() == "success")
-    ] if "operation_type" in df.columns else df
-    return dict(zip(pc[ext_col].astype(str).str.strip(), pc[acq_col].astype(str).str.strip()))
-
-def build_nobimatik_report(bank_data: bytes, tx_data: bytes) -> BytesIO:
+def build_nobimatik_report(bank_data: bytes, deposit_data: bytes) -> BytesIO:
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
 
-    # ── Load bank ──
-    bank_cr = _read_bank_xls(bank_data)
-    bnk_codes = set(bank_cr["_bnk"].tolist())
+    # ── 1. Read bank CSV — find header row with BNK codes ──
+    df_bank_raw = pd.read_csv(BytesIO(bank_data), sep=";", dtype=str, keep_default_na=False)
+    if df_bank_raw.shape[1] <= 1:
+        df_bank_raw = pd.read_csv(BytesIO(bank_data), sep=",", dtype=str, keep_default_na=False)
 
-    # ── Load CSV bridge ──
-    ext_to_bnk = _load_deposit_csv()          # ext_id -> bnk_code
-    bnk_to_ext = {v: k for k, v in ext_to_bnk.items()}  # bnk_code -> ext_id
+    # Auto-detect header: find row where a cell starts with 'Transaction'
+    # Try reading with skiprows to find real header
+    header_row_idx = 0
+    for i, row in df_bank_raw.iterrows():
+        vals = [str(v).strip().lower() for v in row.values if str(v).strip()]
+        if any("transaction date" in v or "transaction reg" in v or "document" in v for v in vals):
+            header_row_idx = i
+            break
 
-    # ── Load TX sheet ──
-    df_tx = pd.read_excel(BytesIO(tx_data), engine="xlrd", header=0, dtype=str)
-    df_tx = df_tx.iloc[:, :9]
-    df_tx.columns = ["Company","currency","transaction_status","customer_email",
-                     "customer_name","payment_id","operation_type","amount","transaction_created_at"]
-    filtered = df_tx[
-        (df_tx["Company"].str.strip().str.lower() == "nobimatica ou") &
-        (df_tx["currency"].str.strip().str.upper() == "EUR") &
-        (df_tx["transaction_status"].str.strip().str.lower() == "success") &
-        (df_tx["operation_type"].str.strip().str.lower() == "payment confirmation")
+    if header_row_idx > 0:
+        df_bank_raw = pd.read_csv(BytesIO(bank_data), sep=";", dtype=str,
+                                   keep_default_na=False, skiprows=header_row_idx)
+        if df_bank_raw.shape[1] <= 1:
+            df_bank_raw = pd.read_csv(BytesIO(bank_data), sep=",", dtype=str,
+                                       keep_default_na=False, skiprows=header_row_idx)
+
+    df_bank_raw.columns = [str(c).strip() for c in df_bank_raw.columns]
+
+    def _find(df, kws):
+        for c in df.columns:
+            if any(k in c.lower() for k in kws):
+                return c
+        return None
+
+    credit_col = _find(df_bank_raw, ["credit(c)", "credit"])
+    trn_col    = _find(df_bank_raw, ["transaction registration", "registration number"])
+    date_col   = _find(df_bank_raw, ["transaction date", "date"])
+    remit_col  = _find(df_bank_raw, ["remitter/beneficiary", "remitter", "beneficiary"])
+
+    if not credit_col or not trn_col:
+        raise ValueError(f"Не найдены колонки в банковском файле. Колонки: {list(df_bank_raw.columns)}")
+
+    df_bank_raw["_credit"] = df_bank_raw[credit_col].apply(to_amount)
+    df_bank_raw["_bnk"]    = df_bank_raw[trn_col].astype(str).str.strip()
+    df_bank_raw["_date"]   = df_bank_raw[date_col].astype(str).str.strip() if date_col else ""
+    df_bank_raw["_remit"]  = df_bank_raw[remit_col].astype(str).str.strip() if remit_col else ""
+
+    bank_cr = df_bank_raw[
+        (df_bank_raw["_credit"] > 0.5) &
+        (df_bank_raw["_bnk"].str.upper().str.startswith("BNK"))
     ].copy().reset_index(drop=True)
 
-    # ext_id -> tx row
-    tx_by_pid = {str(r["payment_id"]).strip(): r for _, r in filtered.iterrows()}
+    # ── 2. Read deposit CSV ──
+    df_dep = pd.read_csv(BytesIO(deposit_data), sep=";", dtype=str, keep_default_na=False)
+    if df_dep.shape[1] <= 1:
+        df_dep = pd.read_csv(BytesIO(deposit_data), sep=",", dtype=str, keep_default_na=False)
+    df_dep.columns = [str(c).strip() for c in df_dep.columns]
 
-    # For each bank credit row: resolve ext_id -> find in TX
-    def match_tx(bnk):
-        ext_id = bnk_to_ext.get(bnk)
-        if not ext_id:
-            return None, None
-        return ext_id, tx_by_pid.get(ext_id)
+    acq_col   = _find(df_dep, ["acquirer_id", "provider_payment_id", "acquirer"])
+    ext_col   = _find(df_dep, ["external_id", "payment_id"])
+    email_col = _find(df_dep, ["customer_email", "email"])
+    name_col  = _find(df_dep, ["customer_name", "name"])
+    amt_col   = _find(df_dep, ["amount"])
+    cur_col   = _find(df_dep, ["currency"])
+    dat_col   = _find(df_dep, ["created_at", "operation_created"])
+    stat_col  = _find(df_dep, ["operation_status", "status"])
+    op_col    = _find(df_dep, ["operation_type", "type"])
 
-    bank_cr["_ext_id"]  = bank_cr["_bnk"].apply(lambda b: bnk_to_ext.get(b, ""))
-    bank_cr["_tx_match"] = bank_cr["_ext_id"].apply(lambda e: e in tx_by_pid if e else False)
+    if not acq_col:
+        raise ValueError(f"Не найдена колонка acquirer_id в депозитном файле. Колонки: {list(df_dep.columns)}")
 
-    matched_bnk = set(bank_cr[bank_cr["_tx_match"]]["_bnk"].tolist())
+    # Filter: Nobimatica OU, EUR, success, payment confirmation
+    mask = pd.Series([True] * len(df_dep), index=df_dep.index)
+    if stat_col: mask &= df_dep[stat_col].str.strip().str.lower() == "success"
+    if op_col:   mask &= df_dep[op_col].str.strip().str.lower() == "payment confirmation"
+    df_dep_f = df_dep[mask].copy().reset_index(drop=True)
 
-    # ── Styles ──
+    # Build BNK -> deposit row map
+    bnk_to_dep = {}
+    for _, row in df_dep_f.iterrows():
+        bnk = str(row[acq_col]).strip()
+        if bnk.upper().startswith("BNK"):
+            bnk_to_dep[bnk] = row
+
+    # ── 3. Match ──
+    bank_cr["_dep_match"] = bank_cr["_bnk"].isin(bnk_to_dep)
+
+    matched   = bank_cr[bank_cr["_dep_match"]].reset_index(drop=True)
+    not_found = bank_cr[~bank_cr["_dep_match"]].reset_index(drop=True)
+
+    # ── 4. Build Excel ──
     NAVY = "FF1F3864"; WHITE = "FFFFFFFF"
     GREEN = "FFE2EFDA"; GREEN2 = "FFD0E4C8"
-    RED = "FFFCE4D6"; RED2 = "FFFAD7CC"
-    ALT = "FFF5F5F5"; FN = "Verdana"
+    RED = "FFFCE4D6";   RED2  = "FFFAD7CC"
+    FN = "Verdana"
 
     def hdr(cell, text):
         cell.value = text
@@ -516,78 +514,80 @@ def build_nobimatik_report(bank_data: bytes, tx_data: bytes) -> BytesIO:
         cell.border    = Border(bottom=Side(style="thin", color="FFAAAAAA"),
                                 right=Side(style="thin", color="FFAAAAAA"))
 
-    def dat(cell, val, bg, num_fmt=None, bold=False, color="FF000000", center=False):
+    def dat(cell, val, bg, num_fmt=None):
         cell.value = val
-        cell.font      = Font(name=FN, size=8, bold=bold, color=color)
+        cell.font      = Font(name=FN, size=8)
         cell.fill      = PatternFill("solid", start_color=bg)
-        cell.alignment = Alignment(vertical="center", horizontal="center" if center else "left")
+        cell.alignment = Alignment(vertical="center")
         cell.border    = Border(bottom=Side(style="hair", color="FFCCCCCC"),
                                 right=Side(style="hair", color="FFCCCCCC"))
         if num_fmt: cell.number_format = num_fmt
 
-    def set_widths(ws, widths):
-        for i, w in enumerate(widths, 1):
+    def widths(ws, ww):
+        for i, w in enumerate(ww, 1):
             ws.column_dimensions[get_column_letter(i)].width = w
 
     wb = Workbook()
 
-    # ══ Sheet 1: Matched ══════════════════════════════════════════════════════
+    # ══ Sheet 1: Matched ══
     ws1 = wb.active
     ws1.title = "Matched"
     ws1.freeze_panes = "A2"
     ws1.row_dimensions[1].height = 32
 
-    h1 = ["Customer Email","Customer Name","Payment ID",
-          "Amount (TX)","Date (TX)","Bank TRN","Bank Amount","Bank Date"]
+    h1 = ["Customer Email", "Customer Name", "Payment ID",
+          "Currency", "Amount", "Date", "Bank TRN", "Bank Amount", "Bank Date"]
     for c, h in enumerate(h1, 1): hdr(ws1.cell(1, c), h)
-    set_widths(ws1, [28, 22, 38, 13, 14, 24, 13, 14])
+    widths(ws1, [28, 22, 38, 10, 13, 14, 24, 13, 14])
 
-    ri = 0
-    for _, brow in bank_cr[bank_cr["_tx_match"]].iterrows():
-        tx = tx_by_pid.get(brow["_ext_id"])
-        if tx is None: continue
+    for ri, (_, brow) in enumerate(matched.iterrows()):
         r = ri + 2
         bg = GREEN if ri % 2 == 0 else GREEN2
-        email = "" if str(tx["customer_email"]) in ("nan","") else tx["customer_email"]
-        name  = "" if str(tx["customer_name"])  in ("nan","") else tx["customer_name"]
-        vals  = [email, name, tx["payment_id"],
-                 to_amount(tx["amount"]), str(tx["transaction_created_at"])[:10],
-                 brow["_bnk"], brow["_credit"], brow["_date"]]
-        fmts  = [None,None,None,"#,##0.00",None,None,"#,##0.00",None]
-        for ci,(v,f) in enumerate(zip(vals,fmts),1): dat(ws1.cell(r,ci), v, bg, f)
-        ri += 1
+        dep = bnk_to_dep.get(brow["_bnk"], {})
+        email = str(dep.get(email_col, "")).strip() if email_col else ""
+        name  = str(dep.get(name_col,  "")).strip() if name_col  else ""
+        pid   = str(dep.get(ext_col,   "")).strip() if ext_col   else ""
+        cur   = str(dep.get(cur_col,   "")).strip() if cur_col   else ""
+        amt   = to_amount(dep.get(amt_col, 0))      if amt_col   else ""
+        date  = str(dep.get(dat_col,   ""))[:10]    if dat_col   else ""
+        vals  = [email, name, pid, cur, amt, date, brow["_bnk"], brow["_credit"], brow["_date"]]
+        fmts  = [None, None, None, None, "#,##0.00", None, None, "#,##0.00", None]
+        for ci, (v, f) in enumerate(zip(vals, fmts), 1):
+            dat(ws1.cell(r, ci), v if v != "nan" else "", bg, f)
 
-    # ══ Sheet 2: Not Found in TX ══════════════════════════════════════════════
-    ws2 = wb.create_sheet("Not Found in TX")
+    # ══ Sheet 2: Not Found ══
+    ws2 = wb.create_sheet("Not Found in Deposit")
     ws2.freeze_panes = "A2"
     ws2.row_dimensions[1].height = 32
 
-    h2 = ["Bank Date","Bank TRN","Remitter","Bank Amount"]
+    h2 = ["Bank Date", "Bank TRN", "Remitter", "Bank Amount"]
     for c, h in enumerate(h2, 1): hdr(ws2.cell(1, c), h)
-    set_widths(ws2, [14, 28, 34, 15])
+    widths(ws2, [14, 28, 34, 15])
 
-    not_found = bank_cr[~bank_cr["_tx_match"]].reset_index(drop=True)
-    for ri2, (_, row) in enumerate(not_found.iterrows()):
-        r = ri2 + 2
-        bg = RED if ri2 % 2 == 0 else RED2
-        remit = "" if row["_remit"] in ("nan","") else row["_remit"]
+    for ri, (_, row) in enumerate(not_found.iterrows()):
+        r = ri + 2
+        bg = RED if ri % 2 == 0 else RED2
+        remit = "" if row["_remit"] in ("nan", "") else row["_remit"]
         vals  = [row["_date"], row["_bnk"], remit, row["_credit"]]
         fmts  = [None, None, None, "#,##0.00"]
-        for ci,(v,f) in enumerate(zip(vals,fmts),1): dat(ws2.cell(r,ci), v, bg, f)
+        for ci, (v, f) in enumerate(zip(vals, fmts), 1):
+            dat(ws2.cell(r, ci), v, bg, f)
 
-    out = BytesIO(); wb.save(out); out.seek(0)
-    return out, len(bank_cr[bank_cr["_tx_match"]]), len(not_found)
+    out = BytesIO()
+    wb.save(out)
+    out.seek(0)
+    return out, len(matched), len(not_found)
 
 
 @app.post("/nobimatik")
 async def api_nobimatik(
-    bank_file: UploadFile = File(...),
-    tx_file:   UploadFile = File(...),
+    bank_file:    UploadFile = File(...),
+    tx_file:      UploadFile = File(...),
 ):
-    bank_data = await bank_file.read()
-    tx_data   = await tx_file.read()
+    bank_data    = await bank_file.read()
+    deposit_data = await tx_file.read()
     try:
-        result, matched, not_found = build_nobimatik_report(bank_data, tx_data)
+        result, matched, not_found = build_nobimatik_report(bank_data, deposit_data)
     except Exception as e:
         raise HTTPException(400, str(e))
     return StreamingResponse(
@@ -595,7 +595,8 @@ async def api_nobimatik(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
             "Content-Disposition": 'attachment; filename="nobimatik_report.xlsx"',
-            "X-Matched": str(matched),
+            "X-Matched":   str(matched),
             "X-Not-Found": str(not_found),
+            "Access-Control-Expose-Headers": "X-Matched, X-Not-Found",
         },
     )
