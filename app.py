@@ -493,8 +493,10 @@ def build_nobimatik_report(bank_data: bytes, deposit_data: bytes):
                 return c
         return None
 
-    acq_col   = _col(df_dep, ["acquirer_id", "provider_payment_id"])
-    ext_col   = _col(df_dep, ["external_id", "payment_id"])
+    acq_col   = _col(df_dep, ["acquirer_id"])
+    ext_col   = _col(df_dep, ["external_id / payment_id", "external_id"])
+    if not ext_col:
+        ext_col = _col(df_dep, ["payment_id"])
     email_col = _col(df_dep, ["customer_email", "email"])
     name_col  = _col(df_dep, ["customer_name", "name"])
     amt_col   = _col(df_dep, ["amount"])
