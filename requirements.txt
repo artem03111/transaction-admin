@@ -7,3 +7,4 @@ python-multipart==0.0.12
 google-auth==2.36.0
 google-api-python-client==2.154.0
 psycopg2-binary==2.9.10
+xlrd==2.0.1
