@@ -29,10 +29,9 @@ nav{padding:16px 10px;flex:1}
 .card{background:#111118;border:1px solid #222230;border-radius:10px;padding:22px;margin-bottom:18px}
 .card-title{font-size:11px;font-weight:600;color:#555568;letter-spacing:.1em;text-transform:uppercase;margin-bottom:16px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
-.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px}
 .fg{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
 .fg label{font-size:11px;color:#666678;letter-spacing:.08em}
-select,input[type=text],input[type=number]{background:#18181f;border:1px solid #2a2a38;border-radius:7px;padding:9px 12px;color:#e8e8f0;font-size:13px;font-family:inherit;width:100%;outline:none;transition:border-color .15s;-webkit-appearance:none;appearance:none}
+select,input[type=text]{background:#18181f;border:1px solid #2a2a38;border-radius:7px;padding:9px 12px;color:#e8e8f0;font-size:13px;font-family:inherit;width:100%;outline:none;transition:border-color .15s;-webkit-appearance:none;appearance:none}
 select:focus,input:focus{border-color:#7c6aff}
 .dz{border:1.5px dashed #2a2a38;border-radius:10px;padding:30px 20px;text-align:center;cursor:pointer;background:#18181f;transition:all .15s;position:relative}
 .dz:hover,.dz.drag{border-color:#7c6aff;background:rgba(124,106,255,.05)}
@@ -46,8 +45,6 @@ select:focus,input:focus{border-color:#7c6aff}
 .btn-primary:active{transform:none}.btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none}
 .btn-outline{background:transparent;color:#e8e8f0;border:1px solid #2a2a38}
 .btn-outline:hover{border-color:#7c6aff;color:#7c6aff}
-.btn-danger{background:transparent;color:#ff6b6b;border:1px solid #3a2020}
-.btn-danger:hover{background:rgba(255,107,107,.1)}
 .btn-sm{padding:6px 12px;font-size:12px}
 .status{border-radius:7px;padding:11px 14px;font-size:12px;line-height:1.6;margin-top:14px;display:none;font-family:monospace}
 .status.show{display:block}
@@ -61,19 +58,6 @@ select:focus,input:focus{border-color:#7c6aff}
 .set-input{background:#18181f;border:1px solid #2a2a38;border-radius:7px;padding:10px 14px;color:#e8e8f0;font-size:13px;font-family:monospace;width:100%;outline:none;transition:border-color .15s}
 .set-input:focus{border-color:#7c6aff}
 .hint{font-size:11px;color:#555568;margin-top:5px}
-.hint a{color:#7c6aff}
-/* BRANDS TABLE */
-.brands-list{display:flex;flex-direction:column;gap:10px;margin-top:8px}
-.brand-card{background:#18181f;border:1px solid #2a2a38;border-radius:8px;padding:16px 18px;display:flex;align-items:center;gap:12px}
-.brand-name{font-size:14px;font-weight:600;flex:1}
-.brand-fees{font-size:11px;color:#555568;font-family:monospace;flex:2}
-.brand-actions{display:flex;gap:8px;flex-shrink:0}
-/* MODAL */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:none;align-items:center;justify-content:center}
-.overlay.show{display:flex}
-.modal{background:#111118;border:1px solid #2a2a38;border-radius:12px;padding:28px;width:560px;max-width:95vw;max-height:90vh;overflow-y:auto}
-.modal-title{font-size:18px;font-weight:700;margin-bottom:20px}
-.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid #222230}
 .deploy-steps{font-family:'Courier New',monospace;font-size:12px;line-height:2.2;color:#666678}
 .deploy-steps .num{color:#4ecca3}
 .deploy-steps .code{color:#e8e8f0;background:#18181f;padding:1px 6px;border-radius:4px}
@@ -94,15 +78,6 @@ select:focus,input:focus{border-color:#7c6aff}
     <button class="nav-btn" onclick="goPage('recon',this)">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
       Сверка
-    </button>
-    <button class="nav-btn" onclick="goPage('settlement',this)">
-      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-      Settlement
-    </button>
-    <div class="nav-section">УПРАВЛЕНИЕ</div>
-    <button class="nav-btn" onclick="goPage('brands',this)">
-      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-      Бренды
     </button>
     <div class="nav-section">СИСТЕМА</div>
     <button class="nav-btn" onclick="goPage('settings',this)">
@@ -167,46 +142,6 @@ select:focus,input:focus{border-color:#7c6aff}
   </div>
 </div>
 
-<!-- SETTLEMENT -->
-<div class="page" id="page-settlement">
-  <div class="page-title">Settlement Report</div>
-  <div class="page-sub">ЗАГРУЗИТЕ CSV — СИСТЕМА ПОКАЖЕТ ДОСТУПНЫЕ БРЕНДЫ</div>
-  <div class="card">
-    <div class="card-title">Шаг 1 — Загрузите CSV выгрузку</div>
-    <div class="fg">
-      <label>CSV ВЫГРУЗКА</label>
-      <div class="dz" id="dz-set" ondragover="dzOver(event,'dz-set')" ondragleave="dzOut('dz-set')" ondrop="dzDrop(event,'f-set','dz-set','dz-set-name')">
-        <input type="file" id="f-set" accept=".csv" onchange="onCsvChange()">
-        <div class="dz-icon">📂</div>
-        <div class="dz-main">Перетащите CSV или нажмите</div>
-        <div class="dz-hint">Система автоматически найдёт бренды из базы</div>
-        <div class="dz-name" id="dz-set-name"></div>
-      </div>
-    </div>
-    <div class="status" id="s-detect"></div>
-  </div>
-
-  <div class="card" id="brands-found-card" style="display:none">
-    <div class="card-title">Шаг 2 — Скачайте отчёты</div>
-    <div style="font-size:12px;color:#555568;margin-bottom:12px" id="brands-found-info"></div>
-    <div id="brands-found-list" style="display:flex;flex-direction:column;gap:8px"></div>
-    <div class="status" id="s-set"></div>
-  </div>
-</div>
-
-<!-- BRANDS -->
-<div class="page" id="page-brands">
-  <div class="page-title">Бренды</div>
-  <div class="page-sub">УПРАВЛЕНИЕ БРЕНДАМИ И УСЛОВИЯМИ</div>
-  <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
-    <button class="btn btn-primary" onclick="openBrandModal()">+ Добавить бренд</button>
-  </div>
-  <div class="brands-list" id="brands-list">
-    <div style="color:#555568;font-size:13px;text-align:center;padding:40px">Загрузка...</div>
-  </div>
-  <div class="status" id="s-brands"></div>
-</div>
-
 <!-- SETTINGS -->
 <div class="page" id="page-settings">
   <div class="page-title">Настройки</div>
@@ -223,52 +158,14 @@ select:focus,input:focus{border-color:#7c6aff}
   <div class="card">
     <div class="card-title">Инструкция</div>
     <div class="deploy-steps">
-      <span class="num">1.</span> GitHub → загрузить <span class="code">app.py</span> и <span class="code">requirements.txt</span><br>
-      <span class="num">2.</span> Render → Environment → добавить <span class="code">DATABASE_URL</span><br>
-      <span class="num">3.</span> Сервер перезапустится → база создастся автоматически<br>
-      <span class="num">4.</span> Зайти в Бренды → добавить бренды с условиями<br>
-      <span class="num">5.</span> Settlement → выбрать бренд → загрузить CSV + шаблон → скачать Excel
+      <span class="num">1.</span> GitHub → загрузить <span class="code">app.py</span><br>
+      <span class="num">2.</span> Render → Environment → добавить <span class="code">DATABASE_URL</span> и <span class="code">GOOGLE_TOKEN_JSON</span><br>
+      <span class="num">3.</span> Сервер перезапустится → готово
     </div>
   </div>
 </div>
 
 </main>
-
-<!-- BRAND MODAL -->
-<div class="overlay" id="brand-modal">
-  <div class="modal">
-    <div class="modal-title" id="modal-title">Добавить бренд</div>
-    <input type="hidden" id="modal-mode" value="add">
-    <div class="fg"><label>НАЗВАНИЕ БРЕНДА</label>
-      <input type="text" id="b-name" placeholder="Spinbetter">
-    </div>
-    <div style="font-size:11px;color:#555568;letter-spacing:.1em;text-transform:uppercase;margin:16px 0 10px">EUROZONE CONDITIONS</div>
-    <div class="row3">
-      <div class="fg"><label>VOLUME FEE EUR (%)</label><input type="number" id="b-vol-eur" step="0.01" value="0" placeholder="0.05"></div>
-      <div class="fg"><label>SUCCESS FEE (за шт)</label><input type="number" id="b-succ" step="0.01" value="0"></div>
-      <div class="fg"><label>FAILED FEE (за шт)</label><input type="number" id="b-fail" step="0.01" value="0"></div>
-    </div>
-    <div style="font-size:11px;color:#555568;letter-spacing:.1em;text-transform:uppercase;margin:16px 0 10px">NON-EUROZONE & OTHER</div>
-    <div class="row3">
-      <div class="fg"><label>VOLUME FEE NON-EUR (%)</label><input type="number" id="b-vol-non" step="0.01" value="0"></div>
-      <div class="fg"><label>CHARGEBACK FEE</label><input type="number" id="b-cb" step="0.01" value="0"></div>
-      <div class="fg"><label>REFUND FEE</label><input type="number" id="b-ref" step="0.01" value="0"></div>
-    </div>
-    <div style="font-size:11px;color:#555568;letter-spacing:.1em;text-transform:uppercase;margin:16px 0 10px">SETTLEMENT & RESERVE</div>
-    <div class="row3">
-      <div class="fg"><label>SETTLEMENT FEE SEPA (%)</label><input type="number" id="b-sepa" step="0.001" value="0"></div>
-      <div class="fg"><label>SETTLEMENT FEE USDT (%)</label><input type="number" id="b-usdt" step="0.001" value="0.01"></div>
-      <div class="fg"><label>ROLLING RESERVE (%)</label><input type="number" id="b-rr" step="0.01" value="0"></div>
-    </div>
-    <div class="fg"><label>ECB ADJUSTMENT</label>
-      <input type="number" id="b-ecb" step="0.01" value="0">
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" onclick="closeModal()">Отмена</button>
-      <button class="btn btn-primary" onclick="saveBrand()">💾 Сохранить</button>
-    </div>
-  </div>
-</div>
 
 <script>
 let API = localStorage.getItem('trx_api') || '';
@@ -278,7 +175,6 @@ function goPage(id, btn) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('page-' + id).classList.add('active');
   btn.classList.add('active');
-  if (id === 'brands') loadBrands();
 }
 
 function saveApi() {
@@ -310,12 +206,11 @@ async function checkApi() {
   if (!API) { setStatus('s-settings','error','❌ Введите URL бэкенда'); return; }
   setStatus('s-settings','loading','Проверяю соединение...');
   try {
-    const r = await fetch((API||'') + '/', { signal: AbortSignal.timeout(10000) });
+    const r = await fetch(API + '/', { signal: AbortSignal.timeout(10000) });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     setStatus('s-settings','success','✅ Соединение OK · API работает');
     document.getElementById('api-dot').className = 'dot ok';
     document.getElementById('api-status-text').textContent = 'API online';
-    loadBrandsToSelect();
   } catch(e) {
     setStatus('s-settings','error','❌ Ошибка: ' + e.message);
     document.getElementById('api-dot').className = 'dot err';
@@ -335,7 +230,7 @@ async function runSummary() {
   fd.append('file', file);
   fd.append('op_type', document.getElementById('sum-optype').value);
   try {
-    const r = await fetch((API||'') + '/summary', { method:'POST', body:fd });
+    const r = await fetch(API + '/summary', { method:'POST', body:fd });
     const j = await r.json();
     if (!r.ok) throw new Error(j.detail || r.status);
     setStatus('s-sum','success','✅ Готово · ' + (j.rows||0).toLocaleString() + ' строк обработано');
@@ -362,239 +257,25 @@ async function runRecon() {
   setStatus('s-rec','loading','Загружаю в Google Sheets...');
   const fd = new FormData(); fd.append('file', file);
   try {
-    const r = await fetch((API||'') + '/recon', { method:'POST', body:fd });
+    const r = await fetch(API + '/recon', { method:'POST', body:fd });
     const j = await r.json();
     if (!r.ok) throw new Error(j.detail || r.status);
     setStatus('s-rec','success','✅ Готово · Записано ' + (j.rows||0).toLocaleString() + ' строк');
   } catch(e) { setStatus('s-rec','error','❌ ' + e.message); }
 }
 
-// ── SETTLEMENT ──
-async function loadBrandsToSelect() {}
-
-async function onCsvChange() {
-  const f = document.getElementById('f-set').files[0];
-  if (!f) return;
-  document.getElementById('dz-set-name').textContent = '📎 ' + f.name;
-  if (!API) { setStatus('s-detect','error','❌ Укажите URL бэкенда в Настройках'); return; }
-  setStatus('s-detect','loading','Анализирую файл...');
-  document.getElementById('brands-found-card').style.display = 'none';
-  const fd = new FormData();
-  fd.append('file', f);
-  try {
-    const r = await fetch((API||'') + '/settlement-detect', { method:'POST', body:fd });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.detail || r.status);
-    if (!j.brands.length) {
-      setStatus('s-detect','error','⚠️ Ни один бренд из базы не найден в файле. Добавьте бренды во вкладке Бренды.');
-      return;
-    }
-    setStatus('s-detect','success','✅ Файл прочитан · ' + j.total_rows.toLocaleString() + ' строк · Найдено брендов: ' + j.brands.length);
-    renderBrandsFound(j.brands);
-  } catch(e) { setStatus('s-detect','error','❌ ' + e.message); }
-}
-
-function renderBrandsFound(brands) {
-  document.getElementById('brands-found-info').textContent = 'Найдено ' + brands.length + ' брендов с успешными транзакциями';
-  const list = document.getElementById('brands-found-list');
-  list.innerHTML = brands.map(b => `
-    <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#18181f;border:1px solid #2a2a38;border-radius:8px">
-      <div style="flex:1">
-        <div style="font-size:14px;font-weight:600">${b.name}</div>
-        <div style="font-size:11px;color:#555568;margin-top:2px">${b.success_count.toLocaleString()} успешных транзакций</div>
-      </div>
-      <div style="font-size:11px;color:#4ecca3;margin-right:12px">✓ есть в базе</div>
-      <button class="btn btn-primary btn-sm" onclick="downloadBrand('${b.name}')" id="btn-${b.name.replace(/\s/g,'_')}">
-        📊 Скачать Excel
-      </button>
-    </div>
-  `).join('');
-  document.getElementById('brands-found-card').style.display = 'block';
-}
-
-function selectAllBrands(val) {
-  document.querySelectorAll('.brand-check').forEach(cb => cb.checked = val);
-}
-
-async function runBulkSettlement() {
-  if (!API) { setStatus('s-set','error','❌ Укажите URL бэкенда в Настройках'); return; }
-  const file = document.getElementById('f-set').files[0];
-  if (!file) { setStatus('s-set','error','❌ Загрузите CSV файл'); return; }
-  const tmpl = document.getElementById('f-tmpl').files[0];
-  if (!tmpl) { setStatus('s-set','error','❌ Загрузите шаблон Excel'); return; }
-  const selected = [...document.querySelectorAll('.brand-check:checked')].map(cb => cb.value);
-  if (!selected.length) { setStatus('s-set','error','❌ Выберите хотя бы один бренд'); return; }
-  setStatus('s-set','loading','Генерирую отчёты для ' + selected.length + ' брендов...');
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('brands', JSON.stringify(selected));
-  try {
-    const r = await fetch((API||'') + '/settlement-bulk', { method:'POST', body:fd });
-    if (!r.ok) { const j = await r.json(); throw new Error(j.detail || r.status); }
-    const blob = await r.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = selected.length === 1 ? 'settlement_' + selected[0] + '.zip' : 'settlement_reports.zip';
-    a.click(); URL.revokeObjectURL(a.href);
-    setStatus('s-set','success','✅ ZIP скачан · ' + selected.length + ' файлов');
-  } catch(e) { setStatus('s-set','error','❌ ' + e.message); }
-}
-
-async function downloadBrand(brandName) {
-  const file = document.getElementById('f-set').files[0];
-  if (!file) { setStatus('s-set','error','❌ Загрузите CSV файл'); return; }
-  const btnId = 'btn-' + brandName.replace(/[^a-zA-Z0-9]/g, '_');
-  const btn = document.getElementById(btnId);
-  if (btn) { btn.textContent = '⟳ Генерирую...'; btn.disabled = true; }
-  setStatus('s-set','loading','Генерирую Excel для ' + brandName + '...');
-  const fd = new FormData();
-  fd.append('file', file);
-  fd.append('brand_name', brandName);
-  try {
-    const base = (API||'');
-    const r = await fetch(base + '/settlement-b64', { method:'POST', body:fd });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.detail || r.status);
-    // Decode base64 and save via Blob — guaranteed Safari support
-    const bytes = Uint8Array.from(atob(j.data), c => c.charCodeAt(0));
-    const blob = new Blob([bytes], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = j.filename;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 1000);
-    setStatus('s-set','success','✅ Excel скачан: ' + j.filename);
-    if (btn) { btn.textContent = '✅ Готово'; btn.style.background = '#4ecca3'; }
-    setTimeout(() => {
-      if (btn) { btn.textContent = '📊 Скачать Excel'; btn.style.background = ''; btn.disabled = false; }
-    }, 3000);
-  } catch(e) {
-    setStatus('s-set','error','❌ ' + e.message);
-    if (btn) { btn.textContent = '📊 Скачать Excel'; btn.disabled = false; }
-  }
-}
-
-async function runBulkSettlement() {}
-async function selectAllBrands() {}
-async function runSettlement() {}
-
-// ── BRANDS ──
-async function loadBrands() {
-  if (!API) { document.getElementById('brands-list').innerHTML = '<div style="color:#ff6b6b;font-size:13px;text-align:center;padding:20px">Настройте URL бэкенда в Настройках</div>'; return; }
-  try {
-    const r = await fetch((API||'') + '/brands');
-    const brands = await r.json();
-    const list = document.getElementById('brands-list');
-    if (!brands.length) {
-      list.innerHTML = '<div style="color:#555568;font-size:13px;text-align:center;padding:40px">Нет брендов · Нажмите "+ Добавить бренд"</div>';
-      return;
-    }
-    list.innerHTML = brands.map(b => `
-      <div class="brand-card">
-        <div class="brand-name">${b.name}</div>
-        <div class="brand-fees">
-          Vol.EUR: ${(+b.volume_fee_eur*100).toFixed(2)}% · 
-          Vol.non-EUR: ${(+b.volume_fee_non_eur*100).toFixed(2)}% · 
-          Settle CF: ${(+b.settlement_fee_usdt*100).toFixed(2)}% · 
-          RR: ${(+b.rolling_reserve*100).toFixed(2)}%
-        </div>
-        <div class="brand-actions">
-          <button class="btn btn-outline btn-sm" onclick='editBrand(${JSON.stringify(b)})'>✏️ Изм.</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteBrand('${b.name}')">🗑️</button>
-        </div>
-      </div>
-    `).join('');
-    loadBrandsToSelect();
-  } catch(e) {
-    document.getElementById('brands-list').innerHTML = '<div style="color:#ff6b6b;font-size:13px;text-align:center;padding:20px">Ошибка загрузки: ' + e.message + '</div>';
-  }
-}
-
-function openBrandModal(brand) {
-  document.getElementById('modal-title').textContent = 'Добавить бренд';
-  document.getElementById('modal-mode').value = 'add';
-  ['b-name','b-vol-eur','b-vol-non','b-succ','b-fail','b-sepa','b-usdt','b-rr','b-ecb','b-cb','b-ref'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el.type === 'number') el.value = 0; else el.value = '';
-  });
-  document.getElementById('b-usdt').value = 0;
-  document.getElementById('brand-modal').classList.add('show');
-}
-
-function editBrand(b) {
-  document.getElementById('modal-title').textContent = 'Изменить бренд';
-  document.getElementById('modal-mode').value = 'edit';
-  document.getElementById('b-name').value = b.name;
-  document.getElementById('b-name').readOnly = true;
-  document.getElementById('b-vol-eur').value = +b.volume_fee_eur;
-  document.getElementById('b-vol-non').value = +b.volume_fee_non_eur;
-  document.getElementById('b-succ').value = +b.success_fee;
-  document.getElementById('b-fail').value = +b.failed_fee;
-  document.getElementById('b-sepa').value = +b.settlement_fee_sepa;
-  document.getElementById('b-usdt').value = +b.settlement_fee_usdt;
-  document.getElementById('b-rr').value = +b.rolling_reserve;
-  document.getElementById('b-ecb').value = +b.ecb_adjustment;
-  document.getElementById('b-cb').value = +b.chargeback_fee;
-  document.getElementById('b-ref').value = +b.refund_fee;
-  document.getElementById('brand-modal').classList.add('show');
-}
-
-function closeModal() {
-  document.getElementById('brand-modal').classList.remove('show');
-  document.getElementById('b-name').readOnly = false;
-}
-
-async function saveBrand() {
-  const name = document.getElementById('b-name').value.trim();
-  if (!name) { alert('Введите название бренда'); return; }
-  const data = {
-    name,
-    volume_fee_eur: +document.getElementById('b-vol-eur').value,
-    volume_fee_non_eur: +document.getElementById('b-vol-non').value,
-    success_fee: +document.getElementById('b-succ').value,
-    failed_fee: +document.getElementById('b-fail').value,
-    settlement_fee_sepa: +document.getElementById('b-sepa').value,
-    settlement_fee_usdt: +document.getElementById('b-usdt').value,
-    rolling_reserve: +document.getElementById('b-rr').value,
-    ecb_adjustment: +document.getElementById('b-ecb').value,
-    chargeback_fee: +document.getElementById('b-cb').value,
-    refund_fee: +document.getElementById('b-ref').value,
-  };
-  try {
-    const r = await fetch((API||'') + '/brands', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
-    if (!r.ok) { const j = await r.json(); throw new Error(j.detail); }
-    closeModal(); loadBrands();
-  } catch(e) { alert('Ошибка: ' + e.message); }
-}
-
-async function deleteBrand(name) {
-  if (!confirm('Удалить бренд "' + name + '"?')) return;
-  try {
-    await fetch((API||'') + '/brands/' + encodeURIComponent(name), { method:'DELETE' });
-    loadBrands();
-  } catch(e) { alert('Ошибка: ' + e.message); }
-}
-
-// init
+// ── INIT ──
 window.onload = function() {
-  // Auto-detect API URL
   if (window.location.hostname.includes('onrender.com')) {
-    // Served from Render — same domain, no need for full URL
-    API = '';
-    document.getElementById('api-url').value = window.location.origin;
+    API = window.location.origin;
+    document.getElementById('api-url').value = API;
     document.getElementById('api-dot').className = 'dot ok';
     document.getElementById('api-status-text').textContent = 'API online';
-    loadBrandsToSelect();
   } else if (localStorage.getItem('trx_api')) {
-    // Previously saved URL
     API = localStorage.getItem('trx_api');
     document.getElementById('api-url').value = API;
     checkApi();
   } else {
-    // Default to Render URL
     API = 'https://transaction-admin.onrender.com';
     document.getElementById('api-url').value = API;
     localStorage.setItem('trx_api', API);
