@@ -154,19 +154,19 @@ select:focus,input:focus{border-color:#7c6aff}
   <div class="card">
     <div class="card-title">Файлы</div>
     <div class="row2">
-      <div class="fg"><label>БАНКОВСКАЯ ВЫГРУЗКА (.xls)</label>
+      <div class="fg"><label>БАНКОВСКАЯ ВЫГРУЗКА (.csv)</label>
         <div class="dz" id="dz-nb-bank" ondragover="dzOver(event,'dz-nb-bank')" ondragleave="dzOut('dz-nb-bank')" ondrop="dzDrop(event,'f-nb-bank','dz-nb-bank','dz-nb-bank-name')">
-          <input type="file" id="f-nb-bank" accept=".xls,.xlsx" onchange="dzChange('f-nb-bank','dz-nb-bank-name')">
+          <input type="file" id="f-nb-bank" accept=".csv" onchange="dzChange('f-nb-bank','dz-nb-bank-name')">
           <div class="dz-icon">🏦</div><div class="dz-main">Банковская выгрузка</div>
-          <div class="dz-hint">transactions_XX_XX_XXXX.xls</div>
+          <div class="dz-hint">transactions_XX_XX_XXXX.csv</div>
           <div class="dz-name" id="dz-nb-bank-name"></div>
         </div>
       </div>
-      <div class="fg"><label>ТРАНЗАКЦИОННЫЙ ЛИСТ (.xls)</label>
+      <div class="fg"><label>ДЕПОЗИТНЫЙ ОТЧЁТ (.csv)</label>
         <div class="dz" id="dz-nb-tx" ondragover="dzOver(event,'dz-nb-tx')" ondragleave="dzOut('dz-nb-tx')" ondrop="dzDrop(event,'f-nb-tx','dz-nb-tx','dz-nb-tx-name')">
-          <input type="file" id="f-nb-tx" accept=".xls,.xlsx" onchange="dzChange('f-nb-tx','dz-nb-tx-name')">
-          <div class="dz-icon">📋</div><div class="dz-main">Транзакционный лист</div>
-          <div class="dz-hint">Processed_transactions_XX.xls</div>
+          <input type="file" id="f-nb-tx" accept=".csv" onchange="dzChange('f-nb-tx','dz-nb-tx-name')">
+          <div class="dz-icon">📋</div><div class="dz-main">Депозитный отчёт</div>
+          <div class="dz-hint">Deposit...csv (с acquirer_id)</div>
           <div class="dz-name" id="dz-nb-tx-name"></div>
         </div>
       </div>
