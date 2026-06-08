@@ -135,11 +135,9 @@ def parse_date_ddmmyyyy(x):
 def fmt(x): return f"{x:,.2f}"
 def trx_word(n): return "transaction" if n == 1 else "transactions"
 
+# ИСПРАВЛЕНО: убрана замена названий мерчантов (temgo -> afribaba удалено)
 def normalize_merchant(name):
-    raw = (name or "").strip()
-    if "temgo" in raw.lower():
-        return "afribaba"
-    return raw or "unknown"
+    return (name or "").strip() or "unknown"
 
 def find_col(df, variants):
     index = {norm_key(col): col for col in df.columns}
@@ -193,7 +191,8 @@ def build_report(df, op_filter="deposit"):
         return "❌ Missing columns: " + ", ".join(missing)
 
     work = df.copy()
-    work["merchant"] = work["merchant_name"].astype(str).apply(normalize_merchant).str.strip().str.lower()
+    # ИСПРАВЛЕНО: оставляем оригинальное название мерчанта, только приводим к lower для группировки
+    work["merchant"] = work["merchant_name"].astype(str).str.strip().str.lower()
     work["_low"]     = work["merchant_name"].astype(str).str.strip().str.lower()
     work             = work[~work["_low"].isin(EXCLUDED_MERCHANTS)].drop(columns=["_low"])
     work["status"]   = work["operation_status"].astype(str).str.strip().str.lower()
@@ -337,8 +336,9 @@ def _prepare_recon(df, headers):
     for h in headers:
         hk = norm_key(h)
         if hk == "merchant name":
+            # ИСПРАВЛЕНО: убран вызов normalize_merchant, оставляем оригинальное название
             col = find_col(df, ["merchant_name", "merchant name", "merchant"])
-            out[h] = df[col].astype(str).map(strip_apostrophe).map(normalize_merchant) if col else ""
+            out[h] = df[col].astype(str).map(strip_apostrophe).str.strip() if col else ""
         elif hk == "customer name":
             first = df[first_col].astype(str).map(strip_apostrophe).str.strip() if first_col else pd.Series("", index=df.index)
             last  = df[last_col].astype(str).map(strip_apostrophe).str.strip()  if last_col  else pd.Series("", index=df.index)
@@ -411,10 +411,8 @@ async def api_recon(file: UploadFile = File(...)):
 
 def _read_bank(data: bytes) -> pd.DataFrame:
     """Read bank file (XLS or CSV), return only BNK credit rows."""
-    # Try XLS first
     try:
         df_raw = pd.read_excel(BytesIO(data), engine="xlrd", header=None, dtype=str)
-        # Find header row
         header_row = 12
         for i, row in df_raw.iterrows():
             vals = [str(v).strip().lower() for v in row if str(v).strip() not in ("nan","")]
@@ -423,7 +421,6 @@ def _read_bank(data: bytes) -> pd.DataFrame:
                 break
         df = pd.read_excel(BytesIO(data), engine="xlrd", header=header_row, dtype=str)
     except Exception:
-        # Fallback: CSV with encoding detection
         for enc in ("utf-8", "windows-1251", "latin-1"):
             try:
                 df = pd.read_csv(BytesIO(data), sep=";", dtype=str,
@@ -508,13 +505,11 @@ def build_nobimatik_report(bank_data: bytes, deposit_data: bytes):
     if not acq_col:
         raise ValueError(f"Не найдена колонка acquirer_id. Колонки: {list(df_dep.columns)}")
 
-    # Filter deposit: success + payment confirmation
     mask = pd.Series([True] * len(df_dep), index=df_dep.index)
     if stat_col: mask &= df_dep[stat_col].str.strip().str.lower() == "success"
     if op_col:   mask &= df_dep[op_col].str.strip().str.lower() == "payment confirmation"
     df_dep_f = df_dep[mask].copy()
 
-    # Build BNK -> deposit row lookup
     bnk_to_dep = {}
     for _, row in df_dep_f.iterrows():
         bnk = str(row[acq_col]).strip()
@@ -525,7 +520,6 @@ def build_nobimatik_report(bank_data: bytes, deposit_data: bytes):
     matched   = bank_cr[bank_cr["_matched"]].reset_index(drop=True)
     not_found = bank_cr[~bank_cr["_matched"]].reset_index(drop=True)
 
-    # ── Excel ──
     NAVY = "FF1F3864"; WHITE = "FFFFFFFF"
     GREEN = "FFE2EFDA"; GREEN2 = "FFD0E4C8"
     RED = "FFFCE4D6";   RED2  = "FFFAD7CC"
@@ -554,7 +548,6 @@ def build_nobimatik_report(bank_data: bytes, deposit_data: bytes):
 
     wb = Workbook()
 
-    # Sheet 1: Matched
     ws1 = wb.active
     ws1.title = "Matched"
     ws1.freeze_panes = "A2"
@@ -576,7 +569,6 @@ def build_nobimatik_report(bank_data: bytes, deposit_data: bytes):
         fmts = [None,None,None,None,"#,##0.00",None,None,"#,##0.00",None]
         for ci,(v,f) in enumerate(zip(vals,fmts),1): dat(ws1.cell(r,ci), v, bg, f)
 
-    # Sheet 2: Not Found
     ws2 = wb.create_sheet("Not Found in Deposit")
     ws2.freeze_panes = "A2"
     ws2.row_dimensions[1].height = 32
