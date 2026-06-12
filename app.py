@@ -43,6 +43,9 @@ CARD_PAY_TYPES = {"visa", "mastercard", "maestro"}
 OB_PAY_TYPES   = {"open-banking", "banks/germany"}
 SHOW_STATUSES  = {"success", "decline", "processing"}
 
+# код метода Apple Pay в новой колонке "Payment method"
+APPLE_PAY_METHOD_CODE = "69"
+
 COLUMN_MAP = {
     "provider payment id": ["acquirer_id / provider_payment_id", "provider_payment_id / acquirer_id", "provider payment id", "provider_payment_id"],
     "currency": ["currency", "currency / currency"],
@@ -60,6 +63,7 @@ COLUMN_MAP = {
     "correct reconcile ?": ["correct reconcile ?", "correct_reconcile"],
     "fraud": ["fraud", "Fraud"],
     "fraud action ?": ["fraud action ?", "fraud_action"],
+    "payment method": ["payment method", "payment_method"],
 }
 
 # =============================================================================
@@ -181,6 +185,32 @@ def _total_line(tot, status):
         return f"{fmt(float(x['amt'].sum()))} {x['cur'].iloc[0].lower()}"
     return " / ".join(f"{fmt(float(r['amt']))} {r['cur'].lower()}" for _, r in x.iterrows())
 
+def _build_block_section(data, op_type, title_word):
+    """Собирает total-строку + блоки по мерчантам для произвольного датафрейма."""
+    if data.empty:
+        return None
+    tot = data.groupby(["status", "cur"], dropna=False).agg(cnt=("amt", "size"), amt=("amt", "sum")).reset_index()
+    total_cnt = int(len(data))
+    succ_cnt  = int(tot[tot["status"] == "success"]["cnt"].sum())
+    decl_cnt  = int(tot[tot["status"] == "decline"]["cnt"].sum())
+    proc_cnt  = int(tot[tot["status"] == "processing"]["cnt"].sum())
+
+    msg = f"total: {total_cnt} {trx_word(total_cnt)}\n"
+    msg += f"{succ_cnt} success for {_total_line(tot,'success')}\n"
+    msg += f"{decl_cnt} decline for {_total_line(tot,'decline')}\n"
+    msg += f"{proc_cnt} processing for {_total_line(tot,'processing')}\n\n"
+
+    grp = data.groupby(["merchant", "op_type", "status", "cur"], dropna=False).agg(cnt=("amt", "size"), amt=("amt", "sum")).reset_index()
+    order = grp.groupby("merchant")["cnt"].sum().sort_values(ascending=False).index.tolist()
+    blocks = []
+    for i, merchant in enumerate(order, start=1):
+        block, *_ = _merchant_block(grp[grp["merchant"] == merchant], op_type, title_word)
+        if block:
+            blocks.append(f"{i} - {merchant}\n\n{block}")
+    msg += "\n\n".join(blocks) if blocks else "No blocks found."
+    return msg
+
+
 def build_report(df, op_filter="deposit"):
     required = ["merchant_name", "operation_status", "operation_type", "amount / amount", "currency / currency"]
     payment_col = "payment_type_id / payment_method_type"
@@ -189,6 +219,10 @@ def build_report(df, op_filter="deposit"):
     missing = [c for c in required if c not in df.columns]
     if missing:
         return "❌ Missing columns: " + ", ".join(missing)
+
+    # новая колонка "Payment method" (последняя в файле): 3221=OB, 1=карты, 69=Apple Pay
+    method_col = find_col(df, COLUMN_MAP["payment method"])
+    has_method_col = method_col is not None
 
     work = df.copy()
     # ИСПРАВЛЕНО: оставляем оригинальное название мерчанта, только приводим к lower для группировки
@@ -200,29 +234,35 @@ def build_report(df, op_filter="deposit"):
     work["cur"]      = work["currency / currency"].astype(str).str.strip().str.upper()
     work["amt"]      = work["amount / amount"].apply(to_float)
     work["pay_type"] = work[payment_col].astype(str).str.strip().str.lower() if has_pay_col else ""
+    work["pay_method"] = work[method_col].astype(str).map(strip_apostrophe).str.strip() if has_method_col else ""
 
     label   = "📥 Deposit" if op_filter == "deposit" else "📤 Payout"
     card_op = "sale" if op_filter == "deposit" else "payout"
 
-    # ── CARD ──
-    card = work[work["pay_type"].isin(CARD_PAY_TYPES) & (work["op_type"] == card_op) & work["status"].isin(SHOW_STATUSES)]
+    # маска Apple Pay по новой колонке "Payment method" == 69
+    is_apple = work["pay_method"] == APPLE_PAY_METHOD_CODE
+
+    # ── CARD (исключая Apple Pay) ──
+    card = work[
+        work["pay_type"].isin(CARD_PAY_TYPES)
+        & (work["op_type"] == card_op)
+        & work["status"].isin(SHOW_STATUSES)
+        & ~is_apple
+    ]
     card_msg = f"💳 card: {label} (file)\n\n"
-    if card.empty:
-        card_msg += "No card transactions found."
-    else:
-        card_tot = card.groupby(["status","cur"], dropna=False).agg(cnt=("amt","size"), amt=("amt","sum")).reset_index()
-        total_cnt = int(len(card))
-        succ_cnt  = int(card_tot[card_tot["status"]=="success"]["cnt"].sum())
-        decl_cnt  = int(card_tot[card_tot["status"]=="decline"]["cnt"].sum())
-        proc_cnt  = int(card_tot[card_tot["status"]=="processing"]["cnt"].sum())
-        card_msg += f"total: {total_cnt} {trx_word(total_cnt)}\n{succ_cnt} success for {_total_line(card_tot,'success')}\n{decl_cnt} decline for {_total_line(card_tot,'decline')}\n{proc_cnt} processing for {_total_line(card_tot,'processing')}\n\n"
-        grp = card.groupby(["merchant","op_type","status","cur"], dropna=False).agg(cnt=("amt","size"), amt=("amt","sum")).reset_index()
-        order = grp.groupby("merchant")["cnt"].sum().sort_values(ascending=False).index.tolist()
-        blocks = []
-        for i, merchant in enumerate(order, start=1):
-            block, *_ = _merchant_block(grp[grp["merchant"]==merchant], card_op, "deposits:" if op_filter=="deposit" else "payouts:")
-            if block: blocks.append(f"{i} - {merchant}\n\n{block}")
-        card_msg += "\n\n".join(blocks) if blocks else "No blocks found."
+    section = _build_block_section(card, card_op, "deposits:" if op_filter == "deposit" else "payouts:")
+    card_msg += section if section is not None else "No card transactions found."
+
+    # ── APPLE PAY (Payment method == 69) ──
+    apple = work[
+        work["pay_type"].isin(CARD_PAY_TYPES)
+        & (work["op_type"] == card_op)
+        & work["status"].isin(SHOW_STATUSES)
+        & is_apple
+    ]
+    apple_msg = f"🍏 apple pay: {label} (file)\n\n"
+    section = _build_block_section(apple, card_op, "deposits:" if op_filter == "deposit" else "payouts:")
+    apple_msg += section if section is not None else "No apple pay transactions found."
 
     # ── OB ──
     ob_base = work[work["pay_type"].isin(OB_PAY_TYPES)] if has_pay_col and work["pay_type"].isin(OB_PAY_TYPES).any() else work
@@ -242,7 +282,7 @@ def build_report(df, op_filter="deposit"):
     ob_msg = f"💰 OB: {label} (file)\n\n"
     if ob.empty:
         ob_msg += "No OB transactions found."
-        return (card_msg + "\n\n" + ob_msg).strip()
+        return (card_msg + "\n\n" + apple_msg + "\n\n" + ob_msg).strip()
 
     ob_tot    = ob.groupby(["status","cur"], dropna=False).agg(cnt=("amt","size"), amt=("amt","sum")).reset_index()
     total_cnt = int(len(ob))
@@ -261,7 +301,7 @@ def build_report(df, op_filter="deposit"):
         if block: blocks2.append(f"{i} - {merchant}\n\n{block}")
     ob_msg += "\n\n".join(blocks2) if blocks2 else "No blocks found."
 
-    return (card_msg + "\n\n" + ob_msg).strip()
+    return (card_msg + "\n\n" + apple_msg + "\n\n" + ob_msg).strip()
 
 # =============================================================================
 # GOOGLE SHEETS (RECONCILIATION)
