@@ -61,6 +61,20 @@ select:focus,input:focus{border-color:#7c6aff}
 .deploy-steps{font-family:'Courier New',monospace;font-size:12px;line-height:2.2;color:#666678}
 .deploy-steps .num{color:#4ecca3}
 .deploy-steps .code{color:#e8e8f0;background:#18181f;padding:1px 6px;border-radius:4px}
+
+/* ── MOBILE FIX: sidebar was fixed at 210px + main margin-left 210px,
+   which on a ~440px viewport left almost no room for the select box,
+   causing "📥 Deposit" to render clipped as "Дер" ── */
+@media (max-width: 760px){
+  body{display:block}
+  .sidebar{position:relative;width:100%;min-width:0;height:auto;border-right:none;border-bottom:1px solid #222230}
+  nav{display:flex;flex-wrap:wrap;padding:10px}
+  .nav-section{width:100%}
+  .nav-btn{width:auto;flex:1 1 auto}
+  .main{margin-left:0;padding:20px 16px}
+  .row2{grid-template-columns:1fr}
+  select,input[type=text]{font-size:14px}
+}
 </style>
 </head>
 <body>
